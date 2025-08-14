@@ -299,6 +299,11 @@ const ICONS = {
       {id:'equip_ropa_negra', name:'Ropa negra', desc:'Cosmético', price:70}
     ]
   };
+  function iconImg(id){
+  const src = ICONS[id] || ICONS.time_potion;
+  return '<img class="icon" alt="" src="'+src+'"/>';
+}
+
   function renderShop(){
   shopConsumibles.innerHTML=''; shopEsteticos.innerHTML=''; inventoryList.innerHTML='';
 
@@ -328,6 +333,7 @@ const ICONS = {
     inventoryList.appendChild(li);
   });
 }
+
 
   function renderProfile(){
     heroClass.innerHTML=''; CLASSES.forEach(function(c){ var o=document.createElement('option'); o.value=c; o.textContent=c; heroClass.appendChild(o); });

@@ -1,5 +1,40 @@
-body { font-family: Arial, sans-serif; background: #111; color: white; margin: 0; }
-nav { background: #222; display: flex; justify-content: space-around; padding: 10px; }
-button { background: #333; color: white; border: none; padding: 10px; cursor: pointer; }
-button:hover { background: #555; }
-#tab-content { padding: 20px; }
+:root{
+  --bg:#090c13; --panel:#0f1422; --ink:#e8ecff; --muted:#a8b7ff;
+  --accent:#6ea8ff; --accent2:#a66bff; --danger:#ff5c7a; --ok:#5cffbd;
+  --radius:16px; --shadow:0 10px 30px rgba(0,0,0,.45), inset 0 0 40px rgba(110,168,255,.06);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:radial-gradient(1200px 600px at 60% -10%,rgba(110,168,255,.15),transparent), #070a12;color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto,Arial}
+.topbar{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:rgba(10,14,25,.85);backdrop-filter:blur(8px);border-bottom:1px solid rgba(110,168,255,.2)}
+.brand{letter-spacing:.18em;font-weight:900;color:var(--accent2)}
+main{padding:16px;max-width:980px;margin:0 auto}
+h2{margin:8px 0 12px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-bottom:10px}
+.view{display:none}
+.view.active{display:block}
+.cards{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;padding:0;margin:0}
+.card{background:linear-gradient(180deg,rgba(15,20,34,.92),rgba(15,20,34,.75));border:1px solid rgba(110,168,255,.15);border-radius:var(--radius);padding:12px;box-shadow:var(--shadow)}
+.card h4{margin:0 0 6px}
+.small{color:var(--muted);font-size:.92rem}
+.badge{display:inline-block;padding:2px 8px;border:1px solid rgba(110,168,255,.4);border-radius:999px;color:var(--muted);font-size:.8rem;margin-right:6px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+button{border:none;border-radius:12px;padding:10px 12px;background:linear-gradient(180deg,rgba(110,168,255,.18),rgba(166,107,255,.18));color:var(--ink);cursor:pointer}
+button:hover{outline:1px solid rgba(110,168,255,.4)}
+button.ghost{background:transparent;border:1px solid rgba(110,168,255,.35)}
+button.danger{background:linear-gradient(180deg,rgba(255,92,122,.2),rgba(255,92,122,.1));border:1px solid rgba(255,92,122,.35)}
+progress{width:100%;height:14px;border-radius:8px;appearance:none}
+progress::-webkit-progress-bar{background:#0b0e19;border-radius:8px}
+progress::-webkit-progress-value{background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:8px}
+.tabbar{position:fixed;bottom:0;left:0;right:0;display:flex;gap:6px;justify-content:space-around;padding:10px;background:rgba(8,10,18,.92);backdrop-filter:blur(8px);border-top:1px solid rgba(110,168,255,.18)}
+.tabbar button.active{outline:2px solid rgba(110,168,255,.45)}
+.topright{float:right;color:var(--muted);font-size:.9rem}
+.chips{display:flex;flex-wrap:wrap;gap:8px;list-style:none;padding:0}
+.chips li{border:1px solid rgba(110,168,255,.25);border-radius:999px;padding:6px 10px;background:#0f1422}
+.profile label{display:block;margin:10px 0}
+input, select{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(110,168,255,.25);background:#0c1120;color:var(--ink)}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000}
+.overlay.hidden{display:none}
+.overlay-card{width:min(520px,92%);background:#0d1326;border:1px solid rgba(110,168,255,.3);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.55);padding:18px}
+.overlay-card.blue{border-color:#6ea8ff}
+.overlay-card.purple{border-color:#a66bff}
+.overlay-card.red{border-color:#ff5c7a}

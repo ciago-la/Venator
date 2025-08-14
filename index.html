@@ -1,1 +1,84 @@
-<!doctype html><html><head><meta charset='utf-8'><title>Altervenator</title><link rel='manifest' href='manifest.webmanifest'><link rel='stylesheet' href='styles.css'></head><body><div id='app'></div><script src='app.js'></script></body></html>
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Altervenator — Misiones</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">ALTERVENATOR</div>
+    <div id="levelInfo">Lvl 1 · 0 XP · 0🪙</div>
+  </header>
+
+  <main>
+    <section id="view-misiones" class="view active">
+      <div class="toolbar">
+        <button id="newFocusBtn" class="ghost">+ Nueva misión Focus</button>
+        <button id="notifBtn" class="ghost">🔔 Activar notificaciones</button>
+      </div>
+      <ul id="missionsList" class="cards"></ul>
+    </section>
+
+    <section id="view-tienda" class="view">
+      <h2>Tienda</h2>
+      <h3>Consumibles</h3>
+      <ul id="shopConsumibles" class="cards"></ul>
+      <h3>Estéticos</h3>
+      <ul id="shopEsteticos" class="cards"></ul>
+      <h3>Inventario</h3>
+      <ul id="inventoryList" class="cards"></ul>
+    </section>
+
+    <section id="view-perfil" class="view">
+      <h2>Perfil</h2>
+      <div class="profile">
+        <label>Nombre <input id="heroName" placeholder="Amo"></label>
+        <label>Clase
+          <select id="heroClass">
+            <option>Asesino</option>
+            <option>Guerrero</option>
+            <option>Mago</option>
+            <option>Invocador</option>
+            <option>Arquero</option>
+          </select>
+        </label>
+        <label>Objetivo focus
+          <select id="heroGoal">
+            <option value="adelgazar">Adelgazar</option>
+            <option value="definir">Definir</option>
+            <option value="muscular">Muscular</option>
+            <option value="abdomen">Abdomen</option>
+            <option value="brazos">Brazos</option>
+            <option value="pecho">Pecho</option>
+            <option value="piernas">Piernas</option>
+          </select>
+        </label>
+        <div class="stats">
+          <div><strong>Nivel:</strong> <span id="pLvl">1</span></div>
+          <div><strong>XP:</strong> <span id="pXP">0</span></div>
+          <div><strong>Monedas:</strong> <span id="pCoins">0</span></div>
+          <div><strong>Nerf EXP:</strong> <span id="pNerf">0</span> misiones</div>
+        </div>
+        <button id="resetBtn" class="danger">Reiniciar progreso</button>
+      </div>
+      <h3>Equipo</h3>
+      <ul id="equipList" class="chips"></ul>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button data-view="misiones" class="active">Misiones</button>
+    <button data-view="tienda">Tienda</button>
+    <button data-view="perfil">Perfil</button>
+  </nav>
+
+  <!-- Dialogo para Focus -->
+  <dialog id="focusDialog">
+    <form method="dialog" id="focu

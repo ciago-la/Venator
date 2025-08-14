@@ -1,3 +1,4 @@
+document.getElementById('levelInfo').textContent = 'Altervenator v10 — JS cargado';
 // === Altervenator (versión completa compatible) ===
 (function(){
   var LS='alter_spec_v1';

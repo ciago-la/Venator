@@ -21,7 +21,6 @@
     <section id="view-misiones" class="view active">
       <div class="toolbar">
         <button id="newFocusBtn" class="ghost">+ Nueva misión Focus</button>
-        <button id="notifBtn" class="ghost">🔔 Activar notificaciones</button>
       </div>
       <ul id="missionsList" class="cards"></ul>
     </section>
@@ -79,6 +78,9 @@
     <button data-view="perfil">Perfil</button>
   </nav>
 
-  <!-- Dialogo para Focus -->
-  <dialog id="focusDialog">
-    <form method="dialog" id="focu
+  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+  </script>
+</body>
+</html>

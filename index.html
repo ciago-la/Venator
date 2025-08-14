@@ -54,6 +54,22 @@
 
     <section id="view-perfil" class="view">
       <h2>Perfil</h2>
+      <div class="avatar">
+  <div class="model">
+    <div class="silhouette"></div>
+    <!-- Capas de equipo (SVGs por JS) -->
+    <img id="eq_dagas" class="equip dagas" alt="" />
+    <img id="eq_arco"  class="equip arco"  alt="" />
+    <img id="eq_gafas" class="equip gafas" alt="" />
+    <img id="eq_ropa"  class="equip ropa"  alt="" />
+  </div>
+  <div class="stats">
+    <div><strong>Nivel:</strong> <span id="pLvl">1</span> (<span id="pXP">0</span>/<span id="pXPNeed">200</span> XP)</div>
+    <div><strong>Monedas:</strong> <span id="pCoins">0</span></div>
+    <div><strong>Nerf EXP:</strong> <span id="pNerf">0</span> misiones</div>
+    <div><strong>Nivel de clase:</strong> <span id="cLvl">1</span> (<span id="cXP">0</span>/<span id="cXPNeed">200</span> XP)</div>
+  </div>
+</div>
       <div class="profile">
         <label>Nombre <input id="heroName" placeholder="Amo"></label>
         <label>Clase

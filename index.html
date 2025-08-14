@@ -9,12 +9,28 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.v10.css">
+
+  <!-- KILL SWITCH SW (1 vez): desregistra cualquier SW y recarga -->
+  <script>
+  (function(){
+    if (!('serviceWorker' in navigator)) return;
+    // Para no entrar en bucle: solo ejecuta una vez
+    if (!localStorage.getItem('SW_KILL_ONCE')) {
+      localStorage.setItem('SW_KILL_ONCE','1');
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        var ps = [];
+        for (var i=0;i<regs.length;i++) ps.push(regs[i].unregister());
+        Promise.all(ps).then(function(){ location.reload(); });
+      });
+    }
+  })();
+  </script>
 </head>
 <body>
   <header class="topbar">
     <div class="brand">ALTERVENATOR</div>
-    <div id="levelInfo">Lvl 1 · 0 / 200 XP · 0🪙</div>
+    <div id="levelInfo">Cargando…</div>
   </header>
 
   <main>
@@ -90,7 +106,15 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
-  <script> if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js'); </script>
+  <!-- Carga versión nueva del JS (nombre distinto para evitar caché) -->
+  <script src="app.v10.js"></script>
+
+  <!-- Tras matar el SW 1 vez, podemos registrar uno nuevo en el futuro -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      // De momento NO registramos nada para evitar interferencias.
+      // Cuando todo funcione, volveremos a activar sw.js si quieres PWA offline.
+    }
+  </script>
 </body>
 </html>

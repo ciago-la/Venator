@@ -1,20 +1,96 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Altervenator</title>
-<link rel="stylesheet" href="styles.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Altervenator — Misiones</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div id="app">
-  <nav>
-    <button onclick="showTab('misiones')">Misiones</button>
-    <button onclick="showTab('tienda')">Tienda</button>
-    <button onclick="showTab('perfil')">Perfil</button>
+  <header class="topbar">
+    <div class="brand">ALTERVENATOR</div>
+    <div id="levelInfo">Lvl 1 · 0 / 200 XP · 0🪙</div>
+  </header>
+
+  <main>
+    <section id="view-misiones" class="view active">
+      <div class="toolbar">
+        <button id="newFocusBtn" class="ghost">+ Nueva misión Focus</button>
+        <button id="forceUrgentBtn" class="ghost">⚠️ Forzar Urgente (demo)</button>
+      </div>
+      <ul id="missionsList" class="cards"></ul>
+    </section>
+
+    <section id="view-tienda" class="view">
+      <h2>Tienda</h2>
+      <h3>Consumibles</h3>
+      <ul id="shopConsumibles" class="cards"></ul>
+      <h3>Estéticos</h3>
+      <ul id="shopEsteticos" class="cards"></ul>
+      <h3>Inventario</h3>
+      <ul id="inventoryList" class="cards"></ul>
+    </section>
+
+    <section id="view-perfil" class="view">
+      <h2>Perfil</h2>
+      <div class="profile">
+        <label>Nombre <input id="heroName" placeholder="Amo"></label>
+        <label>Clase
+          <select id="heroClass"></select>
+        </label>
+        <label>Zona de suerte (Focus)
+          <select id="heroGoal">
+            <option value="abdomen">Abdomen</option>
+            <option value="brazos">Brazos</option>
+            <option value="piernas">Piernas</option>
+            <option value="pecho">Pecho</option>
+            <option value="espalda">Espalda</option>
+            <option value="hombros">Hombros</option>
+          </select>
+        </label>
+        <div class="stats">
+          <div><strong>Nivel:</strong> <span id="pLvl">1</span> (<span id="pXP">0</span>/<span id="pXPNeed">200</span> XP)</div>
+          <div><strong>Monedas:</strong> <span id="pCoins">0</span></div>
+          <div><strong>Nerf EXP:</strong> <span id="pNerf">0</span> misiones</div>
+        </div>
+        <div class="stats">
+          <div><strong>Nivel de clase:</strong> <span id="cLvl">1</span> (<span id="cXP">0</span>/<span id="cXPNeed">200</span> XP)</div>
+        </div>
+        <button id="resetBtn" class="danger">Reiniciar progreso</button>
+      </div>
+      <h3>Equipo</h3>
+      <ul id="equipList" class="chips"></ul>
+
+      <h3>Creación de pruebas/clases</h3>
+      <div class="btnrow">
+        <button id="createClassBtn">Crear clase personalizada (200🪙)</button>
+        <button id="createTestBtn">Crear prueba normal (10🪙)</button>
+        <button id="createEliteBtn">Crear prueba élite (50🪙)</button>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button data-view="misiones" class="active">Misiones</button>
+    <button data-view="tienda">Tienda</button>
+    <button data-view="perfil">Perfil</button>
   </nav>
-  <section id="tab-content"></section>
-</div>
-<script src="app.js"></script>
+
+  <!-- Overlay / notificaciones -->
+  <div id="overlay" class="overlay hidden">
+    <div id="overlayCard" class="overlay-card">
+      <h3 id="ovTitle">Notificación</h3>
+      <p id="ovBody"></p>
+      <div class="btnrow" id="ovButtons"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script> if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js'); </script>
 </body>
 </html>

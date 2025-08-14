@@ -349,13 +349,17 @@ const ICONS = {
   }
 
   function renderProfile(){
-    // ... lo que ya tienes para inputs ...
-    // Actualiza capas del avatar según equipo:
-    svgToImg('eq_dagas','equip_dagas','dagas');
-    svgToImg('eq_arco','equip_arco_rojo','arco');
-    svgToImg('eq_gafas','equip_gafas','gafas');
-    svgToImg('eq_ropa','equip_ropa_negra','ropa');
-  }
+    function svgToImg(id, key){
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (state.equipment.includes(key)) { el.src = ICONS[key]; el.classList.remove('hidden'); }
+  else { el.src=''; el.classList.add('hidden'); }
+}
+svgToImg('eq_dagas','equip_dagas');
+svgToImg('eq_arco','equip_arco_rojo');
+svgToImg('eq_gafas','equip_gafas');
+svgToImg('eq_ropa','equip_ropa_negra');
+
 
   function renderAll(){ renderHeader(); renderMissions(); renderShop(); renderProfile(); }
 

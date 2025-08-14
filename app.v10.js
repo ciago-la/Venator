@@ -1,6 +1,18 @@
 document.getElementById('levelInfo').textContent = 'Altervenator v10 — JS cargado';
 // === Altervenator v10 — funcional mínimo (Diaria / Clase / Focus / Urgente + overlays) ===
 (function(){
+  // Iconos SVG en data URI (puedes sustituirlos por PNG reales cuando quieras)
+const ICONS = {
+  time_potion: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><circle cx="32" cy="32" r="30" fill="%230c1120" stroke="%236ea8ff" stroke-width="3"/><text x="32" y="38" font-size="28" text-anchor="middle" fill="%236ea8ff">⏱</text></svg>',
+  str_potion:  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect x="6" y="6" width="52" height="52" rx="10" fill="%230c1120" stroke="%23a66bff" stroke-width="3"/><text x="32" y="40" font-size="28" text-anchor="middle" fill="%23a66bff">💪</text></svg>',
+  exp_potion:  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><circle cx="32" cy="32" r="30" fill="%230c1120" stroke="%236ea8ff" stroke-width="3"/><text x="32" y="38" font-size="24" text-anchor="middle" fill="%236ea8ff">XP</text></svg>',
+  cure:        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect x="6" y="6" width="52" height="52" rx="10" fill="%230c1120" stroke="%235cffc0" stroke-width="3"/><text x="32" y="40" font-size="26" text-anchor="middle" fill="%235cffc0">✚</text></svg>',
+  equip_dagas:     'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><path d="M20 60 L40 40 L35 35 L15 55 Z" fill="%236ea8ff"/><path d="M60 20 L40 40 L45 45 L65 25 Z" fill="%23a66bff"/></svg>',
+  equip_arco_rojo: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="90" height="90"><path d="M20 80 Q70 45 20 10" fill="none" stroke="%23ff5c7a" stroke-width="6"/><line x1="20" y1="80" x2="20" y2="10" stroke="%23ff5c7a" stroke-width="2"/></svg>',
+  equip_gafas:     'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="40"><rect x="5" y="8" width="28" height="16" rx="4" fill="%236ea8ff"/><rect x="47" y="8" width="28" height="16" rx="4" fill="%236ea8ff"/><rect x="33" y="14" width="14" height="4" fill="%23a66bff"/></svg>',
+  equip_ropa_negra:'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><path d="M10 20 L30 10 L50 20 L45 55 L15 55 Z" fill="%23121822" stroke="%236ea8ff" stroke-width="2"/></svg>'
+};
+
   // -------- Estado --------
   var LS='alter_spec_v10';
   var CLASSES=['Guerrero','Asesino','Mago','Arquero','Espía','Maratón','Amigo del dragón','Saltamontes'];
@@ -238,7 +250,15 @@ document.getElementById('levelInfo').textContent = 'Altervenator v10 — JS carg
     document.getElementById('cXP').textContent=state.classXP;
     document.getElementById('cXPNeed').textContent=cxpNeedFor(state.classLevel);
     document.getElementById('levelInfo').textContent='Lvl '+state.level+' · '+state.xp+' / '+xpNeedFor(state.level)+' XP · '+state.coins+'🪙';
+  } 
+  function renderHeader(){
+    // ... lo que ya tienes ...
+    const need = xpNeedFor(state.level);
+    const pct = Math.max(0, Math.min(1, state.xp / need));
+    const fill = document.getElementById('xpFill');
+    if (fill) fill.style.width = (pct*100)+'%';
   }
+
   function missionCard(m){
     var li=document.createElement('li'); li.className='card'; li.setAttribute('data-id',m.id);
     var typeLabel = (m.type===TYPE.DAILY?'Diaria': m.type===TYPE.FOCUS?'Focus': m.type===TYPE.CLASS?'Clase':'Urgente');
@@ -280,30 +300,57 @@ document.getElementById('levelInfo').textContent = 'Altervenator v10 — JS carg
     ]
   };
   function renderShop(){
-    shopConsumibles.innerHTML=''; shopEsteticos.innerHTML=''; inventoryList.innerHTML='';
-    SHOP.consumibles.forEach(function(it){
-      var li=document.createElement('li'); li.className='card';
-      li.innerHTML='<h4>'+it.name+' — 🪙 '+it.price+'</h4><div class="small">'+it.desc+'</div><div class="btnrow"><button data-buy="'+it.id+'">Comprar</button></div>';
-      shopConsumibles.appendChild(li);
-    });
-    SHOP.esteticos.forEach(function(it){
-      var li=document.createElement('li'); li.className='card';
-      li.innerHTML='<h4>'+it.name+' — 🪙 '+it.price+'</h4><div class="small">'+it.desc+'</div><div class="btnrow"><button data-buy="'+it.id+'">Comprar</button></div>';
-      shopEsteticos.appendChild(li);
-    });
-    Object.keys(state.inventory).forEach(function(k){
-      var li=document.createElement('li'); li.className='card';
-      var label = k==='time_potion'?'Poción de tiempo':k==='str_potion'?'Poción de fuerza':k==='exp_potion'?'Poción de EXP':k==='cure'?'Curas':k;
-      li.innerHTML='<h4>'+label+' × '+state.inventory[k]+'</h4>';
-      inventoryList.appendChild(li);
-    });
-  }
+  shopConsumibles.innerHTML=''; shopEsteticos.innerHTML=''; inventoryList.innerHTML='';
+
+  SHOP.consumibles.forEach(function(it){
+    var li=document.createElement('li'); li.className='card';
+    li.innerHTML='<div class="itemrow">'+iconImg(it.id)+'<h4>'+it.name+' <span class="badge">🪙 '+it.price+'</span></h4></div><div class="small">'+it.desc+'</div><div class="btnrow"><button data-buy="'+it.id+'">Comprar</button></div>';
+    shopConsumibles.appendChild(li);
+  });
+
+  SHOP.esteticos.forEach(function(it){
+    var li=document.createElement('li'); li.className='card';
+    li.innerHTML='<div class="itemrow">'+iconImg(it.id)+'<h4>'+it.name+' <span class="badge">🪙 '+it.price+'</span></h4></div><div class="small">'+it.desc+'</div><div class="btnrow"><button data-buy="'+it.id+'">Comprar</button></div>';
+    shopEsteticos.appendChild(li);
+  });
+
+  // Inventario con "Usar" y "Equipar" (de momento, usar consumibles globales)
+  Object.keys(state.inventory).forEach(function(k){
+    const count = state.inventory[k];
+    if (!count) return;
+    const pretty = k==='time_potion'?'Poción de tiempo':k==='str_potion'?'Poción de fuerza':k==='exp_potion'?'Poción de EXP':k==='cure'?'Curas':k;
+    var li=document.createElement('li'); li.className='card';
+    let actions='';
+    if (k==='exp_potion') actions+='<button data-use-global="exp_potion">Usar (+20% 30min)</button>';
+    else if (k==='cure') actions+='<button data-use-global="cure">Usar (quitar nerf)</button>';
+    else actions+='<div class="small">Úsala desde la tarjeta de misión</div>';
+    li.innerHTML='<div class="itemrow">'+iconImg(k)+'<h4>'+pretty+' × '+count+'</h4></div><div class="btnrow">'+actions+'</div>';
+    inventoryList.appendChild(li);
+  });
+}
+
   function renderProfile(){
     heroClass.innerHTML=''; CLASSES.forEach(function(c){ var o=document.createElement('option'); o.value=c; o.textContent=c; heroClass.appendChild(o); });
     heroName.value=state.hero.name; heroClass.value=state.hero.cls; heroGoal.value=state.hero.goal;
     var equip=document.getElementById('equipList'); equip.innerHTML='';
     (state.equipment||[]).forEach(function(e){ var li=document.createElement('li'); li.textContent=e.replace('equip_',''); equip.appendChild(li); });
   }
+    function svgToImg(id, key, cls){
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (state.equipment.includes(key)) { el.src = ICONS[key]; el.classList.remove('hidden'); }
+    else { el.src=''; el.classList.add('hidden'); }
+  }
+
+  function renderProfile(){
+    // ... lo que ya tienes para inputs ...
+    // Actualiza capas del avatar según equipo:
+    svgToImg('eq_dagas','equip_dagas','dagas');
+    svgToImg('eq_arco','equip_arco_rojo','arco');
+    svgToImg('eq_gafas','equip_gafas','gafas');
+    svgToImg('eq_ropa','equip_ropa_negra','ropa');
+  }
+
   function renderAll(){ renderHeader(); renderMissions(); renderShop(); renderProfile(); }
 
   // -------- Eventos UI --------

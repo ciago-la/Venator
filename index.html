@@ -59,6 +59,17 @@
     <section id="view-perfil" class="view">
       <h2>Perfil</h2>
       <div class="avatar">
+        <h3>Perfiles</h3>
+<div class="btnrow">
+  <input id="profileName" placeholder="Nombre de perfil (p.ej., Amo)" />
+  <button id="saveProfileBtn">Guardar perfil</button>
+  <button id="loadProfileBtn">Cargar perfil</button>
+  <button id="exportProfileBtn" class="ghost">Exportar</button>
+  <input id="importProfileInput" type="file" accept="application/json" style="display:none"/>
+  <button id="importProfileBtn" class="ghost">Importar</button>
+</div>
+<div class="small">Perfiles guardados: <span id="profileList"></span></div>
+
   <div class="model">
     <div class="silhouette"></div>
     <!-- Capas de equipo (SVGs por JS) -->

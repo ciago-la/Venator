@@ -17,6 +17,27 @@ const ICONS = {
 
   // -------- Estado --------
   var LS='alter_spec_v10';
+  var LS='alter_spec_v10';
+var LS_PROFILES='alter_profiles_v1';
+
+function getProfiles(){ try{ return JSON.parse(localStorage.getItem(LS_PROFILES)) || {}; }catch(e){ return {}; } }
+function setProfiles(p){ localStorage.setItem(LS_PROFILES, JSON.stringify(p)); }
+  // ---- Perfiles: UI helpers ----
+function refreshProfileList(){
+  var span=document.getElementById('profileList'); if(!span) return;
+  var names=Object.keys(getProfiles());
+  span.textContent = names.length? names.join(', ') : '(vacío)';
+}
+function exportCurrentProfile(name){
+  var data = { name:name, state: state };
+  var blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (name||'perfil') + '.json';
+  a.click();
+}
+
+
   var CLASSES=['Guerrero','Asesino','Mago','Arquero','Espía','Maratón','Amigo del dragón','Saltamontes'];
   var state = load() || {
     hero:{name:'Amo', cls:'Asesino', goal:'abdomen'},
@@ -406,6 +427,44 @@ svgToImg('eq_ropa','equip_ropa_negra');
   heroClass.addEventListener('change', function(){ state.hero.cls=this.value; save(); });
   heroGoal.addEventListener('change', function(){ state.hero.goal=this.value; save(); });
   document.getElementById('resetBtn').addEventListener('click', function(){ if (confirm('¿Reiniciar todo?')){ localStorage.removeItem(LS); location.reload(); } });
+// ---- Perfiles ----
+document.getElementById('saveProfileBtn').addEventListener('click', function(){
+  var name = (document.getElementById('profileName').value||'').trim();
+  if (!name) return alert('Pon un nombre de perfil');
+  var profiles = getProfiles();
+  profiles[name] = state; // snapshot
+  setProfiles(profiles);
+  alert('Perfil guardado: '+name);
+  refreshProfileList();
+});
+document.getElementById('loadProfileBtn').addEventListener('click', function(){
+  var name = (document.getElementById('profileName').value||'').trim();
+  if (!name) return alert('Pon un nombre de perfil');
+  var profiles = getProfiles();
+  if (!profiles[name]) return alert('No existe el perfil: '+name);
+  state = JSON.parse(JSON.stringify(profiles[name])); // deep clone
+  save(); renderAll();
+  alert('Perfil cargado: '+name);
+});
+document.getElementById('exportProfileBtn').addEventListener('click', function(){
+  var name = (document.getElementById('profileName').value||'Perfil') || 'Perfil';
+  exportCurrentProfile(name);
+});
+document.getElementById('importProfileBtn').addEventListener('click', function(){
+  document.getElementById('importProfileInput').click();
+});
+document.getElementById('importProfileInput').addEventListener('change', function(e){
+  var file = e.target.files[0]; if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(){
+    try{
+      var data = JSON.parse(reader.result);
+      if (data && data.state){ state = data.state; save(); renderAll(); alert('Perfil importado: '+(data.name||'Perfil')); }
+      else alert('Archivo inválido');
+    }catch(err){ alert('No se pudo leer el archivo'); }
+  };
+  reader.readAsText(file);
+});
 
   // -------- Tick (timers) --------
   function tick(){
@@ -437,6 +496,8 @@ svgToImg('eq_ropa','equip_ropa_negra');
   }
 
   // -------- Inicio --------
-  onOpen(); setInterval(tick,1000);
+  onOpen(); 
+  refreshProfileList();
+  setInterval(tick,1000);
 
 })();

@@ -17,6 +17,10 @@ color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto,Arial}
 main{padding:16px;max-width:1000px;margin:0 auto}
 .view{display:none}
 .view.active{display:block}
+/* deja espacio extra para la tabbar fija */
+.view{ padding-bottom: 140px; }
+.cards{ padding-bottom: 40px; }
+
 h2{margin:6px 0 10px}
 
 .toolbar{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin:10px 0}

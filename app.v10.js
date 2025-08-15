@@ -1,17 +1,19 @@
 document.getElementById('levelInfo').textContent = 'Altervenator v10 — JS cargado';
 // === Altervenator v10 — funcional mínimo (Diaria / Clase / Focus / Urgente + overlays) ===
 (function(){
-  // Iconos SVG en data URI (puedes sustituirlos por PNG reales cuando quieras)
+// ICONOS en Base64 (seguros en cualquier navegador)
 const ICONS = {
-  time_potion: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><circle cx="32" cy="32" r="30" fill="%230c1120" stroke="%236ea8ff" stroke-width="3"/><text x="32" y="38" font-size="28" text-anchor="middle" fill="%236ea8ff">⏱</text></svg>',
-  str_potion:  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect x="6" y="6" width="52" height="52" rx="10" fill="%230c1120" stroke="%23a66bff" stroke-width="3"/><text x="32" y="40" font-size="28" text-anchor="middle" fill="%23a66bff">💪</text></svg>',
-  exp_potion:  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><circle cx="32" cy="32" r="30" fill="%230c1120" stroke="%236ea8ff" stroke-width="3"/><text x="32" y="38" font-size="24" text-anchor="middle" fill="%236ea8ff">XP</text></svg>',
-  cure:        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect x="6" y="6" width="52" height="52" rx="10" fill="%230c1120" stroke="%235cffc0" stroke-width="3"/><text x="32" y="40" font-size="26" text-anchor="middle" fill="%235cffc0">✚</text></svg>',
-  equip_dagas:     'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><path d="M20 60 L40 40 L35 35 L15 55 Z" fill="%236ea8ff"/><path d="M60 20 L40 40 L45 45 L65 25 Z" fill="%23a66bff"/></svg>',
-  equip_arco_rojo: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="90" height="90"><path d="M20 80 Q70 45 20 10" fill="none" stroke="%23ff5c7a" stroke-width="6"/><line x1="20" y1="80" x2="20" y2="10" stroke="%23ff5c7a" stroke-width="2"/></svg>',
-  equip_gafas:     'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="40"><rect x="5" y="8" width="28" height="16" rx="4" fill="%236ea8ff"/><rect x="47" y="8" width="28" height="16" rx="4" fill="%236ea8ff"/><rect x="33" y="14" width="14" height="4" fill="%23a66bff"/></svg>',
-  equip_ropa_negra:'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><path d="M10 20 L30 10 L50 20 L45 55 L15 55 Z" fill="%23121822" stroke="%236ea8ff" stroke-width="2"/></svg>'
+  time_potion: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzAiIGZpbGw9IiMwYzExMjAiIHN0cm9rZT0iIzZlYThmZiIgc3Ryb2tlLXdpZHRoPSIzIi8+PHRleHQgeD0iMzIiIHk9IjM4IiBmb250LXNpemU9IjI4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNmVhOGZmIj7wn5CRPC90ZXh0Pjwvc3ZnPg==',
+  str_potion: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCI+PHJlY3QgeD0iNiIgeT0iNiIgd2lkdGg9IjUyIiBoZWlnaHQ9IjUyIiByeD0iMTAiIGZpbGw9IiMwYzExMjAiIHN0cm9rZT0iI2E2NmJmZiIgc3Ryb2tlLXdpZHRoPSIzIi8+PHRleHQgeD0iMzIiIHk9IjQwIiBmb250LXNpemU9IjI4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYTY2YmZmIj7ilqU8L3RleHQ+PC9zdmc+',
+  exp_potion: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzAiIGZpbGw9IiMwYzExMjAiIHN0cm9rZT0iIzZlYThmZiIgc3Ryb2tlLXdpZHRoPSIzIi8+PHRleHQgeD0iMzIiIHk9IjM4IiBmb250LXNpemU9IjI0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNmVhOGZmIj5YUDwvdGV4dD48L3N2Zz4=',
+  cure: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCI+PHJlY3QgeD0iNiIgeT0iNiIgd2lkdGg9IjUyIiBoZWlnaHQ9IjUyIiByeD0iMTAiIGZpbGw9IiMwYzExMjAiIHN0cm9rZT0iIzVjZmZjMCIgc3Ryb2tlLXdpZHRoPSIzIi8+PHRleHQgeD0iMzIiIHk9IjQwIiBmb250LXNpemU9IjI2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNWNmZmMwIj7imJg8L3RleHQ+PC9zdmc+',
+
+  equip_dagas: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTIwIDYwIEw0MCA0MCBMIDM1IDM1IEwgMTUgNTUgWiIgZmlsbD0iIzZlYThmZiIvPjxwYXRoIGQ9Ik02MCAyMCBMNDAgNDAgTDQ1IDQ1IEw2NSAyNSBaIiBmaWxsPSIjYTY2YmZmIi8+PC9zdmc+',
+  equip_arco_rojo: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOTAiIGhlaWdodD0iOTAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTIwIDgwIFE3MCA0NSAyMCAxMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmY1YzdhIiBzdHJva2Utd2lkdGg9IjYiLz48bGluZSB4MT0iMjAiIHkxPSI4MCIgeDI9IjIwIiB5Mj0iMTAiIHN0cm9rZT0iI2ZmNWM3YSIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9zdmc+',
+  equip_gafas: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3QgeD0iNSIgeT0iOCIgd2lkdGg9IjI4IiBoZWlnaHQ9IjE2IiByeD0iNCIgZmlsbD0iIzZlYThmZiIvPjxyZWN0IHg9IjQ3IiB5PSI4IiB3aWR0aD0iMjgiIGhlaWdodD0iMTYiIHJ4PSI0IiBmaWxsPSIjNmVhOGZmIi8+PHJlY3QgeD0iMzMiIHk9IjE0IiB3aWR0aD0iMTQiIGhlaWdodD0iNCIgZmlsbD0iI2E2NmJmZiIvPjwvc3ZnPg==',
+  equip_ropa_negra: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTEwIDIwIEwzMCAxMCBMNTAgMjAgTDQ1IDU1IEwxNSA1NSBaIiBmaWxsPSIjMTIxODIyIiBzdHJva2U9IiM2ZWE4ZmYiIHN0cm9rZS13aWR0aD0iMiIvPjwvc3ZnPg=='
 };
+;
 
   // -------- Estado --------
   var LS='alter_spec_v10';

@@ -1,9 +1,14 @@
-// === Altervenator v13-step1 — SOLO Misión Diaria (estable) ===
-// - Tabs OK
-// - Genera Diaria al abrir (según día de semana) con temporizador
-// - Marcar completada / Fallar
-// - XP/coins/nerf + barra de XP
-// - Overlay simple para avisos
+// === Altervenator v13 — STEP1 (Diaria) + STEP2 (Clase) ===
+// Misiones: Diaria (auto-aceptada) + Clase (aceptar/rechazar), temporizadores,
+// completar/fallar, XP normal y XP de clase, barras de XP, overlays.
+//
+// Requisitos de HTML:
+//  - #missionsList, #overlay (#overlayCard, #ovTitle, #ovBody, #ovButtons)
+//  - #levelInfo y #xpFill
+//  - En Perfil: #pLvl #pXP #pXPNeed #pCoins #pNerf  y  #cLvl #cXP #cXPNeed
+//  - Inputs: #heroName #heroClass #heroGoal
+//  - Tabs con .tabbar y secciones #view-misiones/#view-tienda/#view-perfil
+
 (function(){
   // ---------- Panel visible si hay error ----------
   window.addEventListener('error', function(e){
@@ -14,12 +19,15 @@
   });
 
   // ---------- Estado ----------
-  var LS='alter_v13s1';
+  var LS='alter_v13_step12';
+  var CLASSES=['Guerrero','Asesino','Mago','Arquero','Espía','Maratón','Amigo del dragón','Saltamontes'];
+
   var state = load() || {
     hero:{name:'Amo', cls:'Asesino', goal:'abdomen'},
     xp:0, level:1, coins:0,
+    classXP:0, classLevel:1,
     expBuffUntil:0, expNerfCount:0,
-    missions:[],                // {id,type,title,desc,createdAt,dueAt,status,requirements[],baseXP,baseCoins,penalty}
+    missions:[],                 // {id,type,title,desc,createdAt,dueAt,status,accepted,requirements[],baseXP,baseCoins,classXP?,penalty?}
     lastSeenDay:null
   };
 
@@ -32,19 +40,29 @@
   function today10(){ var x=new Date(); x.setHours(10,0,0,0); return x; }
   function fmt(ms){ ms=Math.max(0,ms|0); var s=Math.floor(ms/1000); var h=('0'+Math.floor(s/3600)).slice(-2); var m=('0'+Math.floor((s%3600)/60)).slice(-2); var sc=('0'+(s%60)).slice(-2); return h+':'+m+':'+sc; }
   function xpNeedFor(level){ return Math.round(200 * Math.pow(1.1, level-1)); }
+  function cxpNeedFor(clevel){ return Math.round(200 * Math.pow(1.1, clevel-1)); }
 
   function gainXP(base){
     var g=base;
     if (Date.now()<state.expBuffUntil) g=Math.round(g*1.2);
     if (state.expNerfCount>0) g=Math.round(g*0.8);
     state.xp += g;
-    while(state.xp >= xpNeedFor(state.level)){ state.xp -= xpNeedFor(state.level); state.level++; }
+    while(state.xp >= xpNeedFor(state.level)){
+      state.xp -= xpNeedFor(state.level); state.level++;
+    }
+  }
+  function gainClassXP(base){
+    state.classXP += base;
+    while(state.classXP >= cxpNeedFor(state.classLevel)){
+      state.classXP -= cxpNeedFor(state.classLevel); state.classLevel++;
+    }
   }
   function applyNerf(){ state.expNerfCount = Math.min(9,(state.expNerfCount||0)+3); }
   function decayNerf(){ if (state.expNerfCount>0) state.expNerfCount--; }
 
   // ---------- Datos ----------
-  var TYPE={DAILY:'daily'};
+  var TYPE={DAILY:'daily', CLASS:'class'};
+
   var DAILY_ROTATION={
     1:['Flexiones 5×2','Sentadillas 10×2','Abdominales 20×2'],
     2:['Dominadas 5/3','Zancadas 4/4','Puente glúteo 7'],
@@ -55,50 +73,78 @@
     0:['Elevación piernas 5×2','Combo saco/sombra (detalle)','Sombra intensa 30s']
   };
 
-  // ---------- Creación Diaria ----------
+  function classPreset(cls){
+    var R={};
+    R['Asesino']=['Saltos pliometría x10/lado ×2','Salto reactivo 20'];
+    R['Guerrero']=['Repite misión diaria','Repite misión focus'];
+    R['Mago']=['Patadas con reacción','Punching ball 1min ×2'];
+    R['Arquero']=['Side/front kicks + scorpions','Combo nuevo ×6'];
+    R['Espía']=['Caderas 3×30s','Equilibrios 30s/pierna'];
+    R['Maratón']=['5 km en 30 min','4 sprints de 100 m'];
+    R['Amigo del dragón']=['Derrota a 1 contrincante','Recorrido ≥3 obstáculos'];
+    R['Saltamontes']=['Agarre 20s ×10','Bloque ×3'];
+    return (R[cls]||R['Asesino']).slice(0,2);
+  }
+
+  // ---------- Creadores de misiones ----------
   function mkDaily(){
     var now=new Date();
     var due = (now < today10()) ? new Date(Math.min(now.getTime()+14*3600*1000, endOfDay().getTime())) : endOfDay();
     var reqText = DAILY_ROTATION[now.getDay()];
     return {
       id:uid(), type:TYPE.DAILY, title:'Misión diaria', desc:'Obligatoria de hoy.',
-      createdAt: now.toISOString(), dueAt: due.toISOString(), status:'pending',
+      createdAt: now.toISOString(), dueAt: due.toISOString(), status:'pending', accepted:true,
       baseXP:40, baseCoins:6,
       requirements: reqText.map(function(s){ return {label:s}; }),
-      penalty:{coins:6, nerf:true, nextHarder:false}
+      penalty:{coins:6, nerf:true}
+    };
+  }
+
+  function mkClassMission(){
+    var now=new Date(); var cls=state.hero.cls;
+    var reqs=classPreset(cls).map(function(t){ return {label:t}; });
+    return {
+      id:uid(), type:TYPE.CLASS, title:'Misión de clase — '+cls, desc:'Entrenamiento de '+cls,
+      createdAt: now.toISOString(), dueAt: new Date(now.getTime()+12*3600*1000).toISOString(),
+      status:'pending', accepted:false,
+      baseXP:70, classXP:70, baseCoins:9, requirements:reqs,
+      penalty:null // sin penalización en fallo
     };
   }
 
   // ---------- Overlay ----------
   var overlay=document.getElementById('overlay'), card=document.getElementById('overlayCard');
   var ovTitle=document.getElementById('ovTitle'), ovBody=document.getElementById('ovBody'), ovButtons=document.getElementById('ovButtons');
-  function showInfo(title, body){
+
+  function showInfo(title, body, color){
+    card.className='overlay-card '+(color||'blue');
     ovTitle.textContent=title; ovBody.textContent=body; ovButtons.innerHTML='';
     var ok=document.createElement('button'); ok.textContent='Aceptar'; ok.onclick=hideOverlay; ovButtons.appendChild(ok);
+    overlay.classList.remove('hidden');
+  }
+  function showPromptAcceptReject(m, color){
+    card.className='overlay-card '+(color||'blue');
+    ovTitle.textContent='Nueva misión';
+    ovBody.textContent='Tienes una misión: '+m.title+' — ¿Aceptas?';
+    ovButtons.innerHTML='';
+    var ok=document.createElement('button'); ok.textContent='Aceptar';
+    ok.onclick=function(){ m.accepted=true; save(); renderAll(); hideOverlay(); };
+    var ko=document.createElement('button'); ko.textContent='Rechazar'; ko.className='ghost';
+    ko.onclick=function(){ m.status='rejected'; save(); renderAll(); hideOverlay(); };
+    ovButtons.appendChild(ok); ovButtons.appendChild(ko);
     overlay.classList.remove('hidden');
   }
   function hideOverlay(){ overlay.classList.add('hidden'); }
 
   // ---------- Generación al abrir ----------
-  function ensureDailyToday(){
-    var t=todayStr(); var has=false;
-    for (var i=0;i<state.missions.length;i++){
-      var m=state.missions[i];
-      if (m.type===TYPE.DAILY && m.status==='pending' && m.createdAt.slice(0,10)===t){ has=true; break; }
-    }
-    if (!has){
-      var d=mkDaily(); state.missions.unshift(d); save(); renderAll();
-      showInfo('Nueva misión', 'Se ha generado tu misión diaria de hoy.');
-    }
-  }
-  function rolloverAndPenalizeIfNeeded(){
+  function rolloverDailyIfNeeded(){
     var t=todayStr();
     if (state.lastSeenDay!==t){
+      // Si ayer quedó diaria pendiente y venció → fallar con penalización
       for (var i=0;i<state.missions.length;i++){
         var m=state.missions[i];
         if (m.type===TYPE.DAILY && m.status==='pending' && m.createdAt.slice(0,10)!==t){
           if (Date.now()>new Date(m.dueAt).getTime()){
-            // Falla automática + penalización
             m.status='failed';
             if (m.penalty){
               if (m.penalty.coins) state.coins=Math.max(0,state.coins-m.penalty.coins);
@@ -112,16 +158,43 @@
     }
   }
 
+  function ensureDailyToday(){
+    var t=todayStr(); var has=false;
+    for (var i=0;i<state.missions.length;i++){
+      var m=state.missions[i];
+      if (m.type===TYPE.DAILY && m.status==='pending' && m.createdAt.slice(0,10)===t){ has=true; break; }
+    }
+    if (!has){
+      var d=mkDaily(); state.missions.unshift(d); save(); renderAll();
+      showInfo('Misión diaria', 'Se ha generado tu misión diaria de hoy.'); // auto-aceptada
+    }
+  }
+
+  function ensureOneClassPending(){
+    // Solo 1 de clase pendiente a la vez
+    for (var i=0;i<state.missions.length;i++){
+      var m=state.missions[i];
+      if (m.type===TYPE.CLASS && m.status==='pending') return;
+    }
+    var c=mkClassMission(); state.missions.unshift(c); save(); renderAll();
+    // Prompt con aceptar/rechazar (clase = morado)
+    showPromptAcceptReject(c,'purple');
+  }
+
   // ---------- Acciones ----------
   function completeMission(m){
     if (!m || m.status!=='pending') return;
+    if (m.type===TYPE.CLASS && !m.accepted) return showInfo('Acepta primero', 'Debes aceptar la misión de clase para poder completarla.','purple');
     m.status='completed';
     gainXP(m.baseXP||0);
+    if (m.classXP) gainClassXP(m.classXP);
     state.coins += (m.baseCoins||0);
     decayNerf();
     save(); renderAll();
-    showInfo('Misión completada', 'Has ganado +'+(m.baseXP||0)+' XP y +'+(m.baseCoins||0)+'🪙');
+    var extra = m.classXP ? (' · +'+m.classXP+' XP clase') : '';
+    showInfo('Misión completada', 'Has ganado +'+(m.baseXP||0)+' XP y +'+(m.baseCoins||0)+'🪙'+extra, m.type===TYPE.CLASS?'purple':'blue');
   }
+
   function failMission(m){
     if (!m || m.status!=='pending') return;
     m.status='failed';
@@ -130,7 +203,7 @@
       if (m.penalty.nerf) applyNerf();
     }
     save(); renderAll();
-    showInfo('Misión fallida', 'Se ha aplicado la penalización correspondiente.');
+    showInfo('Misión fallida', (m.type===TYPE.CLASS?'Sin penalización.':'Se ha aplicado la penalización correspondiente.'), m.type===TYPE.CLASS?'purple':'red');
   }
 
   // ---------- Render ----------
@@ -147,53 +220,61 @@
   }
   function renderHeader(){
     setHeader();
-    // Perfil (si están esos spans)
     var pLvl=document.getElementById('pLvl'); if (pLvl) pLvl.textContent=state.level;
     var pXP=document.getElementById('pXP'); if (pXP) pXP.textContent=state.xp;
     var pNeed=document.getElementById('pXPNeed'); if (pNeed) pNeed.textContent=xpNeedFor(state.level);
     var pCoins=document.getElementById('pCoins'); if (pCoins) pCoins.textContent=state.coins;
     var pNerf=document.getElementById('pNerf'); if (pNerf) pNerf.textContent=state.expNerfCount||0;
+
+    var cLvl=document.getElementById('cLvl'); if (cLvl) cLvl.textContent=state.classLevel;
+    var cXP=document.getElementById('cXP'); if (cXP) cXP.textContent=state.classXP;
+    var cNeed=document.getElementById('cXPNeed'); if (cNeed) cNeed.textContent=cxpNeedFor(state.classLevel);
   }
+
   function missionCard(m){
     var li=document.createElement('li'); li.className='card'; li.setAttribute('data-id',m.id);
+    var typeLabel = m.type===TYPE.DAILY ? 'Diaria' : 'Clase';
     var dueTxt = m.dueAt? '<div class="small">⏳ <span class="timer">'+fmt(new Date(m.dueAt).getTime()-Date.now())+'</span></div>' : '';
-    var reqHtml = m.requirements.map(function(r){ return '<div class="small">• '+r.label+'</div>'; }).join('');
-    var actions = '<button data-act="done" data-id="'+m.id+'">Marcar completada</button> <button class="ghost" data-act="fail" data-id="'+m.id+'">Fallar</button>';
-    li.innerHTML = '<h4>'+m.title+' <span class="small">[Diaria]</span></h4>'
+    var reqHtml = (m.requirements||[]).map(function(r){ return '<div class="small">• '+r.label+'</div>'; }).join('');
+    var actions = '';
+    if (m.type===TYPE.CLASS && !m.accepted){
+      actions += '<button data-act="accept" data-id="'+m.id+'">Aceptar</button> <button class="ghost" data-act="reject" data-id="'+m.id+'">Rechazar</button> ';
+    }
+    actions += '<button data-act="done" data-id="'+m.id+'">Marcar completada</button> ';
+    actions += '<button class="ghost" data-act="fail" data-id="'+m.id+'">Fallar</button>';
+    li.innerHTML = '<h4>'+m.title+' <span class="small">['+typeLabel+']</span></h4>'
       + '<div class="small">'+(m.desc||'')+'</div>'+ dueTxt
-      + '<div class="small">Recompensa: '+(m.baseXP||0)+' XP, '+(m.baseCoins||0)+'🪙</div>'
+      + '<div class="small">Recompensa: '+(m.baseXP||0)+' XP, '+(m.baseCoins||0)+'🪙'+(m.classXP?' · '+m.classXP+' XP clase':'')+'</div>'
       + reqHtml
       + '<div class="btnrow">'+actions+'</div>';
     return li;
   }
+
   function renderMissions(){
     missionsList.innerHTML='';
-    var pend=state.missions.filter(function(x){return x.type===TYPE.DAILY;});
-    if (!pend.length){
-      var li=document.createElement('li'); li.className='card';
-      li.innerHTML='<div class="small">No hay misiones. Pulsa recargar si no aparece la diaria.</div>';
-      missionsList.appendChild(li);
-      return;
-    }
+    var pend=state.missions.filter(function(x){return x.status==='pending' && (x.type===TYPE.DAILY || x.type===TYPE.CLASS);});
+    var hist=state.missions.filter(function(x){return x.status!=='pending' && (x.type===TYPE.DAILY || x.type===TYPE.CLASS);}).slice(0,8);
     pend.forEach(function(m){ missionsList.appendChild(missionCard(m)); });
+    if (hist.length){
+      var sep=document.createElement('li'); sep.className='card'; sep.innerHTML='<div class="small">Histórico reciente</div>'; missionsList.appendChild(sep);
+      hist.forEach(function(m){ missionsList.appendChild(missionCard(m)); });
+    }
   }
+
   function renderProfile(){
     if (heroName) heroName.value=state.hero.name;
     if (heroClass){
       heroClass.innerHTML='';
-      ['Guerrero','Asesino','Mago','Arquero','Espía','Maratón','Amigo del dragón','Saltamontes'].forEach(function(c){
-        var o=document.createElement('option'); o.value=c; o.textContent=c; heroClass.appendChild(o);
-      });
+      CLASSES.forEach(function(c){ var o=document.createElement('option'); o.value=c; o.textContent=c; heroClass.appendChild(o); });
       heroClass.value=state.hero.cls;
     }
-    if (heroGoal){
-      heroGoal.value=state.hero.goal;
-    }
+    if (heroGoal) heroGoal.value=state.hero.goal;
   }
+
   function renderAll(){ renderHeader(); renderMissions(); renderProfile(); }
 
   // ---------- Eventos UI ----------
-  // Tabs (ya probadas en v12)
+  // Tabs
   var tabbar=document.querySelector('.tabbar');
   if (tabbar){
     tabbar.addEventListener('click', function(e){
@@ -212,41 +293,48 @@
     if (id&&act){
       var m=state.missions.find(function(x){return x.id===id;});
       if (!m) return;
-      if (act==='done') completeMission(m);
-      if (act==='fail') failMission(m);
+      if (act==='accept'){ m.accepted=true; save(); renderAll(); return; }
+      if (act==='reject'){ m.status='rejected'; save(); renderAll(); return; }
+      if (act==='done'){ completeMission(m); return; }
+      if (act==='fail'){ failMission(m); return; }
     }
-    // Los otros botones (+ Focus / Urgente) de momento no hacen nada en step1
   });
 
   // Perfil inputs
-  if (heroName) heroName.addEventListener('change', function(){ state.hero.name=this.value||'Amo'; save(); setHeader(); });
+  if (heroName)  heroName.addEventListener('change', function(){ state.hero.name=this.value||'Amo'; save(); setHeader(); });
   if (heroClass) heroClass.addEventListener('change', function(){ state.hero.cls=this.value; save(); });
   if (heroGoal)  heroGoal.addEventListener('change', function(){ state.hero.goal=this.value; save(); });
 
-  // ---------- Tick (temporizador) ----------
+  // ---------- Tick (temporizadores + auto-fail) ----------
   function tick(){
+    var now=Date.now(), dirty=false;
     var cards=document.querySelectorAll('#missionsList .card');
     for (var j=0;j<cards.length;j++){
       var id=cards[j].getAttribute('data-id'); if(!id) continue;
       var m=state.missions.find(function(x){return x.id===id;});
       var el=cards[j].querySelector('.timer');
-      if (m&&el&&m.dueAt){ el.textContent=fmt(new Date(m.dueAt).getTime()-Date.now()); }
-      // auto-fail al llegar a 0
-      if (m && m.status==='pending' && m.dueAt && Date.now()>new Date(m.dueAt).getTime()){
+      if (m&&el&&m.dueAt){ el.textContent=fmt(new Date(m.dueAt).getTime()-now); }
+      if (m && m.status==='pending' && m.dueAt && now>new Date(m.dueAt).getTime()){
+        // Diaria: aplica penalización. Clase: falla sin penal.
         m.status='failed';
-        if (m.penalty){
+        if (m.type===TYPE.DAILY && m.penalty){
           if (m.penalty.coins) state.coins=Math.max(0,state.coins-m.penalty.coins);
           if (m.penalty.nerf) applyNerf();
         }
-        save(); renderAll();
-        showInfo('Tiempo agotado', 'La misión diaria ha fallado por tiempo.');
+        dirty=true;
       }
     }
+    if (dirty){ save(); renderAll(); }
   }
 
   // ---------- Inicio ----------
-  rolloverAndPenalizeIfNeeded();
+  // Rollover de diaria del día anterior + penalización si vencida
+  rolloverDailyIfNeeded();
+  // Asegurar diaria de hoy
   ensureDailyToday();
+  // Asegurar 1 misión de clase pendiente (con prompt Aceptar/Rechazar)
+  ensureOneClassPending();
+
   renderAll();
   setInterval(tick, 1000);
 })();

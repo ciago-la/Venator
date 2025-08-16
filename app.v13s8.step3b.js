@@ -33,11 +33,18 @@
 
   // --- imágenes reales ---
   const PNG={
-    equip_arco_rojo:  'assets/equip_arco_rojo.png',
-    equip_dagas:      'assets/equip_dagas.png',
-    equip_gafas:      'assets/equip_gafas.png',
-    equip_ropa_negra: 'assets/equip_ropa_negra.png'
-  };
+  equip_arco_rojo:  'assets/equip_arco_rojo.png',
+  equip_dagas:      'assets/equip_dagas.png',
+  equip_gafas:      'assets/equip_gafas.png',
+  equip_ropa_negra: 'assets/equip_ropa_negra.png',
+
+  // --- nuevos iconos para pociones ---
+  consum_time: 'assets/consum_time.png',
+  consum_str:  'assets/consum_str.png',
+  consum_exp:  'assets/consum_exp.png',
+  consum_cure: 'assets/consum_cure.png'
+};
+
 
   // --- estado ---
   function load(){ try{return JSON.parse(localStorage.getItem(LS));}catch(_){return null;} }

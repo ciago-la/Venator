@@ -1,9 +1,11 @@
-// === Altervenator app.v13s8.step2.js ===
-// Paso 2: Notificaciones nativas + Pity timer para urgentes (10% base, a partir de 7 días sin urgentes sube +5%/día hasta 30% y garantiza).
-// Mantiene: diarias 1/día, misiones de clase (auto + botón, máx 2/día), focus máx 2/día, XSS seguro, tienda, perfiles.
+// === Altervenator app.v13s8.step2b.js ===
+// - Misiones de clase: 2 pruebas aleatorias de un pool amplio por clase.
+// - Progresión de CLASE por-clase: cada clase tiene su propio {level,xp}.
+// Mantiene: diarias 1/día, Focus 2/día, botón +Clase 2/día, XSS seguro, tienda, perfiles,
+//           urgentes con pity timer + notificaciones (versión step2).
 
 (function(){
-  const VER='v13s8-step2';
+  const VER='v13s8-step2b';
   const LS='alter_v13s5';
   const LS_PROFILES='alter_profiles_v1';
   const TYPE={DAILY:'daily', CLASS:'class', URGENT:'urgent', FOCUS:'focus'};
@@ -16,20 +18,17 @@
     d.textContent='JS ERROR: '+(e.message||e.filename||''); document.body.appendChild(d);
   });
 
-  // ----- Helpers DOM seguros -----
+  // ----- Helpers -----
   const $  =(s)=>document.querySelector(s);
   const $$ =(s)=>Array.from(document.querySelectorAll(s));
   const el =(tag, cls, text)=>{ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; };
-
-  // ----- Estado / carga -----
-  function load(){ try{return JSON.parse(localStorage.getItem(LS));}catch(_){return null;} }
-  function save(){ localStorage.setItem(LS, JSON.stringify(state)); }
-  function todayStr(){ return new Date().toISOString().slice(0,10); }
+  const uid=()=>Math.random().toString(36).slice(2)+Date.now().toString(36);
+  const todayStr=()=> new Date().toISOString().slice(0,10);
   function endOfDay(){ const x=new Date(); x.setHours(23,59,59,999); return x; }
   function today10(){ const x=new Date(); x.setHours(10,0,0,0); return x; }
   function fmt(ms){ ms=Math.max(0,ms|0); const s=(ms/1000)|0; const h=('0'+(s/3600|0)).slice(-2); const m=('0'+((s%3600)/60|0)).slice(-2); const sc=('0'+(s%60)).slice(-2); return h+':'+m+':'+sc; }
-  function xpNeedFor(level){ return Math.round(200 * Math.pow(1.1, level-1)); }
-  function cxpNeedFor(level){ return Math.round(200 * Math.pow(1.1, level-1)); }
+  const xpNeedFor=(L)=>Math.round(200*Math.pow(1.1, L-1));
+  const cxpNeedFor=(L)=>Math.round(200*Math.pow(1.1, L-1));
   function weekKey(){
     const d=new Date();
     const a=new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -38,16 +37,26 @@
     const w=Math.ceil((((a-y)/86400000)+1)/7);
     return a.getUTCFullYear()+'-W'+('0'+w).slice(-2);
   }
+
+  // ----- Estado -----
+  function load(){ try{return JSON.parse(localStorage.getItem(LS));}catch(_){return null;} }
+  function save(){ localStorage.setItem(LS, JSON.stringify(state)); }
   function defaultUrgentPlan(){ return {date:null, decided:false, willHave:false, fireAt:null, spawned:false}; }
+
+  function blankClassProgress(){
+    const o={};
+    CLASSES.forEach(c=> o[c]={level:1, xp:0});
+    return o;
+  }
 
   function migrateShape(s){
     if (!s) s={};
     if (!s.hero) s.hero={name:'Amo', cls:'Asesino', goal:'abdomen'};
-    if (typeof s.xp!=='number') s.xp=0;
+
+    // GLOBAL (se mantienen)
     if (typeof s.level!=='number') s.level=1;
+    if (typeof s.xp!=='number') s.xp=0;
     if (typeof s.coins!=='number') s.coins=0;
-    if (typeof s.classXP!=='number') s.classXP=0;
-    if (typeof s.classLevel!=='number') s.classLevel=1;
     if (typeof s.expBuffUntil!=='number') s.expBuffUntil=0;
     if (typeof s.expNerfCount!=='number') s.expNerfCount=0;
     if (!Array.isArray(s.missions)) s.missions=[];
@@ -56,36 +65,43 @@
     if (!Array.isArray(s.equipment)) s.equipment=[];
     if (typeof s.lastSeenDay!=='string' && s.lastSeenDay!==null) s.lastSeenDay=null;
     if (typeof s.lastDailyDateCreated!=='string' && s.lastDailyDateCreated!==null) s.lastDailyDateCreated=null;
-    if (!s.urgentPlan || typeof s.urgentPlan!=='object') s.urgentPlan = defaultUrgentPlan();
-    s.urgentPlan = Object.assign(defaultUrgentPlan(), s.urgentPlan);
-    if (!s.dailyCounters || typeof s.dailyCounters!=='object'){
-      s.dailyCounters = { date:null, focusMade:0, classMade:0 };
-    }
-    // NUEVO: pity timer
+
+    // Pity timer + plan
+    if (!s.urgentPlan || typeof s.urgentPlan!=='object') s.urgentPlan=defaultUrgentPlan();
+    s.urgentPlan=Object.assign(defaultUrgentPlan(), s.urgentPlan);
     if (typeof s.daysWithoutUrgent!=='number') s.daysWithoutUrgent=0;
-    if (typeof s.schemaVersion!=='number') s.schemaVersion=2;
+
+    // Contadores diarios
+    if (!s.dailyCounters || typeof s.dailyCounters!=='object'){
+      s.dailyCounters={date:null, focusMade:0, classMade:0};
+    }
+
+    // NUEVO: progreso por clase (sustituye a classLevel/classXP globales)
+    if (!s.classProgress || typeof s.classProgress!=='object') s.classProgress = blankClassProgress();
+
+    // Migración desde classLevel/classXP antiguos (si existían)
+    if (typeof s.classLevel==='number' || typeof s.classXP==='number'){
+      const cur = s.hero?.cls || 'Asesino';
+      const L = Math.max(1, s.classLevel||1);
+      const X = Math.max(0, s.classXP||0);
+      if (!s.classProgress[cur]) s.classProgress[cur]={level:1,xp:0};
+      s.classProgress[cur].level=L;
+      s.classProgress[cur].xp=X;
+      delete s.classLevel; delete s.classXP;
+    }
+
+    if (typeof s.schemaVersion!=='number' || s.schemaVersion<3) s.schemaVersion=3;
     return s;
   }
   let state = migrateShape(load());
 
-  // ----- Econ/XP -----
+  // ----- Economía/XP -----
   function gainXP(base){
     let g=base;
     if (Date.now()<state.expBuffUntil) g=Math.round(g*1.2);
     if (state.expNerfCount>0) g=Math.round(g*0.8);
     state.xp += g;
     while(state.xp >= xpNeedFor(state.level)){ state.xp -= xpNeedFor(state.level); state.level++; }
-  }
-  function gainClassXP(base){
-    state.classXP += base;
-    while(state.classXP >= cxpNeedFor(state.classLevel)){
-      state.classXP -= cxpNeedFor(state.classLevel);
-      state.classLevel++;
-      if (state.classLevel % 10 === 0){
-        const award = classBonusItem(state.hero.cls);
-        if (award) state.inventory[award]=(state.inventory[award]||0)+1;
-      }
-    }
   }
   function classBonusItem(cls){
     const map={
@@ -95,10 +111,31 @@
     };
     return map[cls]||'gema_rara';
   }
+  function currentClassObj(){
+    const c=state.hero.cls||'Asesino';
+    if (!state.classProgress[c]) state.classProgress[c]={level:1,xp:0};
+    return state.classProgress[c];
+  }
+  function gainClassXP(base){
+    const cName=state.hero.cls||'Asesino';
+    const cp = currentClassObj(); // {level,xp}
+    cp.xp += base;
+    while (cp.xp >= cxpNeedFor(cp.level)){
+      cp.xp -= cxpNeedFor(cp.level);
+      cp.level++;
+      // premio cada 10 niveles de esa clase
+      if (cp.level % 10 === 0){
+        const award = classBonusItem(cName);
+        if (award) state.inventory[award]=(state.inventory[award]||0)+1;
+      }
+    }
+  }
   function applyNerf(){ state.expNerfCount = Math.min(9,(state.expNerfCount||0)+3); }
   function decayNerf(){ if (state.expNerfCount>0) state.expNerfCount--; }
 
-  // ----- Datos base (diaria / clase) -----
+  // ----- Datos base -----
+
+  // Diaria (como antes)
   const DAILY_ROTATION={
     1:['Flexiones 5 × 2','Sentadillas 10 × 2','Abdominales 20 × 2'],
     2:['Dominadas 5/3','Zancadas 4/4','Puente de glúteo 7'],
@@ -108,27 +145,117 @@
     6:['Fondos de tríceps 5','Patada lateral 3 × 2','Plancha 10 s'],
     0:['Elevación de piernas 5 × 2','Saco/sombra (combo)','Sombra intensa 30 s']
   };
-  const CLASS_POOLS={
-    'Asesino': [['Saltos pliométricos x10 por lado ×2','Saltos reactivos 20','Burpees 8 + Cangrejo 33 + Burpees pino 9 + Estrella 33 + Spidermans 30 (×2, 1 min desc)']],
-    'Mago': [['Patada reacción (rápida) 20','Asalto punching ball 1 min ×2','Reflejos con pelotas 5']],
-    'Arquero': [['Side kicks 10/lado + Front kicks 10/lado','Scorpions 5/lado','Pasos de rana 20 + mono 20']],
-    'Espía': [['Estiramientos cadera 3×30s','Flexibilidad piernas 3×30s','Equilibrios a 1 pierna 30s c/u']],
-    'Maratón': [['Sprints 4×100 m','Corre 5 km (≤30 min)','Corre 10 km (≤60 min)']],
-    'Amigo del dragón': [['Recorrido 3 obstáculos (dominar)','Movimiento volador ×10','Derribo ×10']],
-    'Saltamontes': [['Agarre: aguanta 20s y suelta ×10','Agarre con peso 30 rep c/lado (30kg)','Haz un bloque ×3 + una vía ×3']],
-    'Guerrero': [['Repite la diaria','Golpes con arma pesada 3×10','Combo pesado 1 min']]
+
+  // === POOLS DE CLASE (amplios, en forma de ARRAY DE STRINGS) ===
+  // Sacado de tu documento (resumido/adaptado a texto corto). Cada misión elige 2 aleatorias.
+  const CLASS_POOL_STRINGS={
+    'Asesino': [
+      'Saltos pliométricos 10/lado ×2',
+      'Saltos reactivos 20',
+      'Burpees 8',
+      'Cangrejo 33 pasos',
+      'Burpees en pino 9',
+      'Saltos estrella 33',
+      'Spidermans 30',
+      'Seguir a alguien 10 min (sigilo)',
+      'Escuchar conversación 2 min (sin ser visto)'
+    ],
+    'Mago': [
+      'Patada reacción rápida 20',
+      'Asalto punching ball 1 min ×2',
+      'Reflejos con pelotas 10',
+      'Aprende a usar callado (básico)',
+      '3 golpes con callado ×20',
+      'Hazte amigo de alguien (pide permiso para aconsejar)'
+    ],
+    'Arquero': [
+      'Side kicks 10/lado + Front 10/lado',
+      'Scorpions 5/lado',
+      'Pasos de rana 20 + mono 20',
+      'Pasos de cocodrilo 20',
+      'Dispara 100 flechas',
+      'Dispara 20 flechas saltando',
+      'Siguiente paso del pino (progreso)',
+      'Recorrido de dianas (dominar)',
+      '10 flechas sin culatín',
+      'Estilo mongol 10 flechas',
+      'Tira 10 m más lejos'
+    ],
+    'Espía': [
+      'Estiramientos cadera 3×30s',
+      'Flexibilidad piernas 3×30s',
+      'Equilibrio 1 pierna 30s c/u',
+      'Pistol squat 5 intentos c/pierna',
+      'Dragon squat 5 intentos c/pierna',
+      'Lanza 50 cuchillos',
+      'Lanza 20 cuchillos saltando',
+      'Lanza desde 4 direcciones ×10',
+      '2 cuchillos en <1s ×10',
+      '3 cuchillos en <1s ×10',
+      'Lanza +5 m de tu habitual',
+      'Lanzamiento sin giro ×10',
+      'Lanzamiento con 1 giro ×10',
+      'Golpes cuerpo a cuerpo con cuchillo',
+      'Secuencia: ligero×5, medio×7, pesado×5'
+    ],
+    'Maratón': [
+      'Corre 1 km en 2 min',
+      'Corre 5 km en 30 min',
+      'Corre 10 km en 60 min',
+      'Corre 15 km (total)',
+      'Corre 20 km (total)',
+      '4 sprints de 100 m',
+      'Correr 30 min “a tope”',
+      'Técnica eficiente china (aprende)',
+      'Aprende técnica nueva de carrera'
+    ],
+    'Amigo del dragón': [
+      'Derrota a 1 contrincante',
+      'Recorrido 3 obstáculos (dominar)',
+      'Movimiento volador ×10',
+      'Derribo ×10',
+      'Patada ×10',
+      'Puñetazo ×10',
+      'Recorrido 10 obstáculos',
+      'Derrota a 5 contrincantes',
+      'Aprende arma marcial'
+    ],
+    'Saltamontes': [
+      'Agarre: aguanta 20s y suelta ×10',
+      'Agarre con peso 30 rep c/lado (30kg)',
+      'Haz un bloque ×3',
+      'Haz una vía ×3',
+      'Escala algo no diseñado para ello',
+      'Saltos en escalada',
+      'Rappel en sitio no previsto'
+    ],
+    'Guerrero': [
+      'Repite la diaria (hoy)',
+      'Repite la focus (hoy)',
+      'Golpes arma pesada 3×10',
+      'Combo arma pesada 1 min',
+      'Duplica diaria (modo duro)',
+      'Duplica focus (modo duro)',
+      '3 golpes “Guts” ×10',
+      'Combo 5 golpes “Guts”',
+      'Combo 1 min “Guts”',
+      'Inventa un golpe',
+      'Fabrica un arma pesada'
+    ]
   };
 
   function scaleTextForLevel(text, lvl){
     const f=Math.pow(1.1, Math.max(0,lvl-1));
+    // A/B
     let out=text.replace(/(\d+)\s*\/\s*(\d+)/g,(_,a,b)=>Math.max(1,Math.round(a*f))+'/'+Math.max(1,Math.round(b*f)));
+    // segundos
     out=out.replace(/(\d+)\s*s\b/g,(m,p)=>Math.max(1,Math.round(p*f))+' s');
+    // números sueltos
     out=out.replace(/(\d+)(?![^\(]*\))/g,(m,p)=>String(Math.max(1,Math.round(p*f))));
     return out;
   }
 
   // ----- Creadores -----
-  function uid(){ return Math.random().toString(36).slice(2)+Date.now().toString(36); }
   function mkDaily(){
     const now=new Date();
     const due=(now < today10()) ? new Date(Math.min(now.getTime()+14*3600*1000, endOfDay().getTime())) : endOfDay();
@@ -153,14 +280,32 @@
       dueAt:new Date(now.getTime()+8*3600*1000).toISOString(), status:'pending', accepted:false, baseXP:80, baseCoins:10,
       requirements:reqs, penalty:{coins:8, nerf:true, nextHarder:true, harderFactor:1.5} };
   }
-  function mkClassMission(cls){
-    const now=new Date(); const pool=CLASS_POOLS[cls]||[['Técnica 1','Técnica 2','Técnica 3']];
-    const pick=pool[Math.floor(Math.random()*pool.length)];
-    const reqs=pick.map(s=>({label:scaleTextForLevel(s, state.classLevel)}));
-    return { id:uid(), type:TYPE.CLASS, title:'Misión de clase — '+cls, desc:'Entrenamiento específico de tu clase.',
-      createdAt:now.toISOString(), dueAt:new Date(now.getTime()+12*3600*1000).toISOString(),
-      status:'pending', accepted:false, baseXP:0, baseCoins:9, classXP:70, requirements:reqs, penalty:null };
+
+  // Selecciona N únicos aleatorios del pool
+  function pickN(arr, n){
+    const a=[...arr]; for (let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; }
+    return a.slice(0, n);
   }
+
+  function mkClassMission(cls){
+    const now=new Date();
+    const pool = CLASS_POOL_STRINGS[cls] || ['Técnica 1','Técnica 2','Técnica 3','Técnica 4'];
+    const cp = currentClassObj(); // nivel actual de ESA clase
+    const chosen = pickN(pool, 2);
+    const reqs = chosen.map(s=>({label: scaleTextForLevel(s, cp.level)}));
+    return {
+      id:uid(), type:TYPE.CLASS, title:'Misión de clase — '+cls,
+      desc:'Entrenamiento específico de tu clase.',
+      createdAt: now.toISOString(),
+      dueAt: new Date(now.getTime()+12*3600*1000).toISOString(), // 12h
+      status:'pending', accepted:false,
+      baseXP:0, baseCoins:9, classXP:70,
+      requirements:reqs,
+      penalty:null
+    };
+  }
+
+  // Urgentes (como step2, con pity + notifs)
   function mkUrgent(){
     const T=[
       {name:'Domador de Dragones', reqs:['Sprint 200 m × 5','Flexiones 40','Plancha 60 s','Prueba de clase (aleatoria)'], loot:['aliento_dragón','escamas_dragón','huevo_dragón','amigo_dragón','sangre_dragón']},
@@ -176,7 +321,7 @@
       penalty:{coins:10, nerf:true, nextHarder:true, harderFactor:1.25}, loot:t.loot };
   }
 
-  // ----- Overlay mínimo -----
+  // ----- Overlay (igual que step2) -----
   const overlay=$('#overlay'), card=$('#overlayCard'), ovTitle=$('#ovTitle'), ovBody=$('#ovBody'), ovButtons=$('#ovButtons');
   function showInfo(title, body, color){
     if (!overlay||!card) { alert(title+'\n'+body); return; }
@@ -199,9 +344,8 @@
     overlay.classList.remove('hidden');
   }
 
-  // ----- Notificaciones nativas -----
+  // ----- Notificaciones (igual que step2) -----
   function notifSupported(){ return 'Notification' in window; }
-  function notifPermission(){ return notifSupported()? Notification.permission : 'denied'; }
   function askNotifPermission(){
     if (!notifSupported()) return showInfo('Notificaciones','Tu navegador no soporta notificaciones.', 'blue');
     if (Notification.permission==='granted') return showInfo('Notificaciones','Ya estaban activadas.','blue');
@@ -211,45 +355,33 @@
     });
   }
   function notifyNow(title, body){
-    try{
-      if (!notifSupported() || Notification.permission!=='granted') return;
-      new Notification(title, { body, icon: undefined /* puedes poner un icono público si quieres */ });
-    }catch(_){}
+    try{ if ('Notification' in window && Notification.permission==='granted'){ new Notification(title, { body }); } }catch(_){}
   }
-  // programa un aviso "in-page" (siendo app abierta) para cuando quede <30 min de una misión
   function scheduleDueSoonNotification(m){
-    if (!m || !m.dueAt) return;
-    if (Notification.permission!=='granted') return;
+    if (!('Notification' in window) || Notification.permission!=='granted' || !m.dueAt) return;
     const due = new Date(m.dueAt).getTime();
-    const triggerAt = due - 30*60*1000; // 30 min antes
+    const triggerAt = due - 30*60*1000;
     const delay = triggerAt - Date.now();
-    if (delay <= 0) return; // ya está a menos de 30 min
-    setTimeout(()=> {
-      // si sigue pendiente
+    if (delay<=0) return;
+    setTimeout(()=>{
       const live = state.missions.find(x=>x.id===m.id);
-      if (live && live.status==='pending'){
-        notifyNow('⏳ Quedan 30 min', m.title+' está a punto de vencer.');
-      }
-    }, Math.min(delay, 2_147_000_000)); // limitar por si es muy largo
+      if (live && live.status==='pending') notifyNow('⏳ Quedan 30 min', m.title+' está a punto de vencer.');
+    }, Math.min(delay, 2_147_000_000));
   }
-
-  // botón en Perfil
   document.addEventListener('click', (e)=>{
     const t=e.target.closest('button'); if(!t) return;
-    if (t.id==='enableNotifBtn'){ askNotifPermission(); }
+    if (t.id==='enableNotifBtn') askNotifPermission();
   });
 
-  // ----- Rollover / contadores / límites -----
+  // ----- Rollover / límites / pity -----
   function rolloverDailyIfNeeded(){
     const t=todayStr();
     if (!state.dailyCounters || state.dailyCounters.date!==t){
       state.dailyCounters = { date:t, focusMade:0, classMade:0 };
-      // Si ayer no hubo urgente (spawned), aumentar daysWithoutUrgent
-      // Comprobamos plan de ayer: si existía y no spawned => cuenta como "no hubo"
-      // Para simplificar: si hoy empezamos sin urgente marcado spawned hoy, incrementamos; si hoy se genera uno, reseteamos en ese momento.
       state.daysWithoutUrgent = (state.daysWithoutUrgent||0) + 1;
     }
     if (state.lastSeenDay!==t){
+      // penalizar diaria vieja vencida
       state.missions.forEach(m=>{
         if (m.type===TYPE.DAILY && m.status==='pending' && m.createdAt.slice(0,10)!==t){
           if (Date.now()>new Date(m.dueAt).getTime()){
@@ -259,85 +391,47 @@
         }
       });
       state.lastSeenDay=t;
-      state.urgentPlan=defaultUrgentPlan(); // nuevo día, nuevo plan
+      state.urgentPlan=defaultUrgentPlan();
       save();
     }
   }
-
-  // ----- Pity timer para urgentes -----
-  // Regla: base 10%. Si daysWithoutUrgent >= 7, chance = 0.10 + min(0.05*(days-6), 0.20). Si >= 30% garantizamos 1.
   function urgentChanceToday(){
-    const d = Math.max(0, state.daysWithoutUrgent||0);
-    if (d < 7) return 0.10;
-    const extra = Math.min(0.05*(d-6), 0.20); // +5% por día desde el 7, tope +20%
-    const total = 0.10 + extra; // tope 0.30
-    return Math.min(total, 0.30);
+    const d=Math.max(0,state.daysWithoutUrgent||0);
+    if (d<7) return 0.10;
+    const extra=Math.min(0.05*(d-6),0.20); // +5%/día desde el 7 hasta +20%
+    return Math.min(0.10+extra, 0.30);
   }
-
   function planUrgentForTodayIfNeeded(){
     const t=todayStr();
     const wk=weekKey(); const used=state.weeklyUrgents[wk]||0;
     if (state.urgentPlan && state.urgentPlan.date===t && state.urgentPlan.decided) return;
-
     const plan=defaultUrgentPlan(); plan.date=t; plan.decided=true;
-
     if (used<3){
-      const chance = urgentChanceToday();
-      // Garantía cuando chance es 30%
-      const will = (chance>=0.30) ? true : (Math.random()<chance);
+      const chance=urgentChanceToday();
+      const will=(chance>=0.30) ? true : (Math.random()<chance);
       if (will){
-        const h = 3 + Math.floor(Math.random()*17); // 3..19
-        const m = Math.floor(Math.random()*60);
-        const fire = new Date(); fire.setHours(h,m,0,0);
+        const h=3+Math.floor(Math.random()*17), m=Math.floor(Math.random()*60);
+        const fire=new Date(); fire.setHours(h,m,0,0);
         plan.willHave=true; plan.fireAt=fire.toISOString();
       }
     }
     state.urgentPlan=plan; save();
   }
-
-  function onUrgentSpawned(){
-    // Cuando realmente se crea una urgente (se "activa"), reseteamos pity
-    state.daysWithoutUrgent = 0;
-    save();
-  }
-
+  function onUrgentSpawned(){ state.daysWithoutUrgent=0; save(); }
   function triggerScheduledUrgentIfTime(){
-    const plan=state.urgentPlan;
-    if (!plan || !plan.decided || !plan.willHave || plan.spawned || !plan.fireAt) return;
-    const now=Date.now(), fireAt=new Date(plan.fireAt).getTime();
-    if (now < fireAt) return;
-
-    const wk=weekKey(); const used=state.weeklyUrgents[wk]||0;
-    if (used>=3){ plan.spawned=true; save(); return; }
-
-    const u=mkUrgent();
-    const due=fireAt+5*3600*1000;
-    if (now > due){
-      // Llega tarde: fallida inmediata con penalización
-      u.createdAt=new Date(fireAt).toISOString();
-      u.dueAt=new Date(due).toISOString();
-      u.status='failed';
-      if (u.penalty){
-        if (u.penalty.coins) state.coins=Math.max(0,state.coins-u.penalty.coins);
-        if (u.penalty.nerf) applyNerf();
-        if (u.penalty.nextHarder) state.missions.unshift(harderClone(u));
-      }
-      state.missions.unshift(u);
-      state.weeklyUrgents[wk]=(state.weeklyUrgents[wk]||0)+1;
-      plan.spawned=true; save(); renderAll();
-      // Aunque haya sido fallida inmediata, cuenta como "hubo urgente"
-      onUrgentSpawned();
-      notifyNow('⚠️ Urgente perdida', 'La misión urgente de hoy venció antes de que entraras.');
+    const p=state.urgentPlan; if (!p||!p.decided||!p.willHave||p.spawned||!p.fireAt) return;
+    const now=Date.now(), fireAt=new Date(p.fireAt).getTime(); if (now<fireAt) return;
+    const wk=weekKey(); const used=state.weeklyUrgents[wk]||0; if (used>=3){ p.spawned=true; save(); return; }
+    const u=mkUrgent(); const due=fireAt+5*3600*1000;
+    if (now>due){
+      u.createdAt=new Date(fireAt).toISOString(); u.dueAt=new Date(due).toISOString(); u.status='failed';
+      if (u.penalty){ if (u.penalty.coins) state.coins=Math.max(0,state.coins-u.penalty.coins); if (u.penalty.nerf) applyNerf(); if (u.penalty.nextHarder) state.missions.unshift(harderClone(u)); }
+      state.missions.unshift(u); state.weeklyUrgents[wk]=(state.weeklyUrgents[wk]||0)+1; p.spawned=true; save(); renderAll(); onUrgentSpawned();
+      notifyNow('⚠️ Urgente perdida','La misión urgente de hoy venció antes de entrar.');
       return;
     }
-    // Activa en tiempo
-    state.missions.unshift(u);
-    state.weeklyUrgents[wk]=(state.weeklyUrgents[wk]||0)+1;
-    plan.spawned=true; save(); renderAll();
-    onUrgentSpawned();
-    // Notif inmediata
-    notifyNow('⚡ ¡Misión urgente!', 'Se ha activado una misión urgente. Tienes 5 horas.');
-    // Aviso 30 min antes del final
+    state.missions.unshift(u); state.weeklyUrgents[wk]=(state.weeklyUrgents[wk]||0)+1; p.spawned=true; save(); renderAll(); onUrgentSpawned();
+    notifyNow('⚡ ¡Misión urgente!','Se ha activado una misión urgente. Tienes 5 horas.');
     scheduleDueSoonNotification(u);
   }
 
@@ -352,51 +446,70 @@
   function completeMission(m){
     if (!m || m.status!=='pending') return;
     if ((m.type===TYPE.CLASS || m.type===TYPE.FOCUS) && !m.accepted) return showInfo('Acepta primero','Debes aceptar la misión.','blue');
-    m.status='completed'; gainXP(m.baseXP||0); if (m.classXP) gainClassXP(m.classXP); state.coins+=(m.baseCoins||0); decayNerf();
+    m.status='completed';
+    gainXP(m.baseXP||0);
+    if (m.classXP) gainClassXP(m.classXP); // <<— ahora suma a la clase ACTUAL
+    state.coins += (m.baseCoins||0);
+    decayNerf();
     if (m.type===TYPE.URGENT && Math.random()<0.20 && m.loot && m.loot.length){
-      const item=m.loot[Math.floor(Math.random()*m.loot.length)]; state.inventory[item]=(state.inventory[item]||0)+1; showInfo('Objeto raro recibido','Has obtenido: '+item,'blue');
+      const item=m.loot[Math.floor(Math.random()*m.loot.length)];
+      state.inventory[item]=(state.inventory[item]||0)+1;
+      showInfo('Objeto raro recibido','Has obtenido: '+item,'blue');
     }
     save(); renderAll();
-    const extra=m.classXP?(' · +'+m.classXP+' XP clase'):''; const col=m.type===TYPE.CLASS?'purple':(m.type===TYPE.URGENT?'red':(m.type===TYPE.FOCUS?'blue':'blue'));
+    const extra = m.classXP ? (' · +'+m.classXP+' XP clase') : '';
+    const col = m.type===TYPE.CLASS?'purple': (m.type===TYPE.URGENT?'red': (m.type===TYPE.FOCUS?'blue':'blue'));
     showInfo('Misión completada','Has ganado +'+(m.baseXP||0)+' XP y +'+(m.baseCoins||0)+'🪙'+extra, col);
   }
   function failMission(m){
     if (!m || m.status!=='pending') return;
     m.status='failed';
-    if (m.penalty){ if (m.penalty.coins) state.coins=Math.max(0,state.coins-m.penalty.coins); if (m.penalty.nerf) applyNerf(); if (m.penalty.nextHarder) state.missions.unshift(harderClone(m)); }
-    save(); renderAll(); const col=m.type===TYPE.CLASS?'purple':(m.type===TYPE.URGENT?'red':'blue'); showInfo('Misión fallida',(m.type===TYPE.CLASS?'Sin penalización.':'Se aplicó la penalización.'), col);
+    if (m.penalty){
+      if (m.penalty.coins) state.coins=Math.max(0,state.coins-m.penalty.coins);
+      if (m.penalty.nerf) applyNerf();
+      if (m.penalty.nextHarder) state.missions.unshift(harderClone(m));
+    }
+    save(); renderAll();
+    const col = m.type===TYPE.CLASS?'purple': (m.type===TYPE.URGENT?'red':'blue');
+    showInfo('Misión fallida', (m.type===TYPE.CLASS?'Sin penalización.':'Se aplicó la penalización.'), col);
   }
   function add2h(m){ if (!m.dueAt) return; m.dueAt=new Date(new Date(m.dueAt).getTime()+2*3600*1000).toISOString(); }
   function halfRequirements(m){ if (!m.requirements) return; m.requirements=m.requirements.map(r=>({label:r.label.replace(/(\d+)/g, x=>String(Math.max(1, Math.floor(parseInt(x,10)/2))))})); }
 
-  // ----- Límites diarios (ya existentes) -----
-  function canMakeFocus(){ return state.dailyCounters && state.dailyCounters.focusMade < 2; }
-  function incFocus(){ state.dailyCounters.focusMade++; save(); }
-  function canMakeClass(){ return state.dailyCounters && state.dailyCounters.classMade < 2; }
-  function incClass(){ state.dailyCounters.classMade++; save(); }
+  // ----- Límites diarios (se mantienen) -----
+  const canMakeFocus = ()=> state.dailyCounters && state.dailyCounters.focusMade < 2;
+  const incFocus     = ()=> { state.dailyCounters.focusMade++; save(); };
+  const canMakeClass = ()=> state.dailyCounters && state.dailyCounters.classMade < 2;
+  const incClass     = ()=> { state.dailyCounters.classMade++; save(); };
 
   // ----- Render -----
   const missionsList=$('#missionsList'), shopConsumibles=$('#shopConsumibles'), shopEsteticos=$('#shopEsteticos'), inventoryList=$('#inventoryList');
   const heroName=$('#heroName'), heroClass=$('#heroClass'), heroGoal=$('#heroGoal');
 
   function setHeader(){
-    const need=xpNeedFor(state.level); const li=$('#levelInfo'); if (li) li.textContent='Lvl '+state.level+' · '+state.xp+' / '+need+' XP · '+state.coins+'🪙 · '+VER;
+    const need=xpNeedFor(state.level);
+    const li=$('#levelInfo'); if (li) li.textContent='Lvl '+state.level+' · '+state.xp+' / '+need+' XP · '+state.coins+'🪙 · '+VER;
     const fill=$('#xpFill'); if (fill){ const pct=Math.max(0,Math.min(1,state.xp/need)); fill.style.width=(pct*100)+'%'; }
     document.title='Venator · '+VER;
   }
   function renderHeader(){
     setHeader();
     const set=(id,val)=>{ const el=$('#'+id); if(el) el.textContent=val; };
-    set('pLvl',state.level); set('pXP',state.xp); set('pXPNeed',xpNeedFor(state.level));
+    set('pLvl',state.level);
+    set('pXP',state.xp); set('pXPNeed',xpNeedFor(state.level));
     set('pCoins',state.coins); set('pNerf',state.expNerfCount||0);
-    set('cLvl',state.classLevel); set('cXP',state.classXP); set('cXPNeed',cxpNeedFor(state.classLevel));
-    // mostrar estado de notificaciones (opcional) podría pintarse aquí si quieres
+    // CLASE actual
+    const cp=currentClassObj();
+    set('cLvl',cp.level);
+    set('cXP',cp.xp);
+    set('cXPNeed',cxpNeedFor(cp.level));
   }
 
   function urgentCounterNode(){
-    const wk=weekKey(); const used=state.weeklyUrgents[wk]||0; const div=el('div','small'); div.textContent='⚡ Urgentes semana: '+used+'/3'; return div;
+    const wk=weekKey(); const used=state.weeklyUrgents[wk]||0;
+    const div=el('div','small'); div.textContent='⚡ Urgentes semana: '+used+'/3';
+    return div;
   }
-
   function iconImg(id){
     const ICONS={
       time_potion:'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzAiIGZpbGw9IiMwYzExMjAiIHN0cm9rZT0iIzZlYThmZiIgc3Ryb2tlLXdpZHRoPSIzIi8+PHRleHQgeD0iMzIiIHk9IjM4IiBmb250LXNpemU9IjI4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNmVhOGZmIj7wn5CRPC90ZXh0Pjwvc3ZnPg==',
@@ -430,7 +543,7 @@
   }
 
   function renderMissions(){
-    const missionsList=$('#missionsList'); if (!missionsList) return;
+    if (!missionsList) return;
     missionsList.textContent='';
     const head=el('li','card');
     const row=el('div','btnrow');
@@ -460,7 +573,7 @@
       {id:'equip_gafas', name:'Gafas de combate', desc:'Cosmético', price:40},
       {id:'equip_ropa_negra', name:'Ropa negra', desc:'Cosmético', price:70}
     ]};
-    function iconImg(id){
+    function iconImgShop(id){
       const ICONS={
         time_potion:'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzAiIGZpbGw9IiMwYzExMjAiIHN0cm9rZT0iIzZlYThmZiIgc3Ryb2tlLXdpZHRoPSIzIi8+PHRleHQgeD0iMzIiIHk9IjM4IiBmb250LXNpemU9IjI4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNmVhOGZmIj7wn5CRPC90ZXh0Pjwvc3ZnPg==',
         str_potion:'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCI+PHJlY3QgeD0iNiIgeT0iNiIgd2lkdGg9IjUyIiBoZWlnaHQ9IjUyIiByeD0iMTAiIGZpbGw9IiMwYzExMjAiIHN0cm9rZT0iI2E2NmJmZiIgc3Ryb2tlLXdpZHRoPSIzIi8+PHRleHQgeD0iMzIiIHk9IjQwIiBmb250LXNpemU9IjI4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYTY2YmZmIj7ilqU8L3RleHQ+PC9zdmc+'
@@ -469,7 +582,7 @@
     }
     function shopCard(it){
       const li=el('li','card'); const row=el('div','itemrow');
-      row.appendChild(iconImg(it.id)); const h=el('h4'); h.append(it.name+' '); const badge=el('span','badge','🪙 '+it.price); h.appendChild(badge); row.appendChild(h);
+      row.appendChild(iconImgShop(it.id)); const h=el('h4'); h.append(it.name+' '); const badge=el('span','badge','🪙 '+it.price); h.appendChild(badge); row.appendChild(h);
       li.appendChild(row); li.appendChild(el('div','small',it.desc));
       const btns=el('div','btnrow'); const b=el('button',null,'Comprar'); b.dataset.buy=it.id; btns.appendChild(b); li.appendChild(btns); return li;
     }
@@ -478,7 +591,7 @@
     Object.keys(state.inventory).forEach(k=>{
       const count=state.inventory[k]; if(!count) return;
       const pretty = k==='time_potion'?'Poción de tiempo':k==='str_potion'?'Poción de fuerza':k==='exp_potion'?'Poción de EXP':k==='cure'?'Curas':k;
-      const li=el('li','card'); const row=el('div','itemrow'); row.appendChild(iconImg(k)); row.appendChild(el('h4',null, pretty+' × '+count)); li.appendChild(row);
+      const li=el('li','card'); const row=el('div','itemrow'); row.appendChild(iconImgShop(k)); row.appendChild(el('h4',null, pretty+' × '+count)); li.appendChild(row);
       const btns=el('div','btnrow');
       if (k==='exp_potion'){ const b=el('button',null,'Usar (+20% 30min)'); b.dataset.useGlobal='exp_potion'; btns.appendChild(b); }
       else if (k==='cure'){ const b=el('button',null,'Usar (quitar nerf)'); b.dataset.useGlobal='cure'; btns.appendChild(b); }
@@ -490,7 +603,11 @@
 
   function renderProfile(){
     if (heroName) heroName.value=state.hero.name||'';
-    if (heroClass){ heroClass.innerHTML=''; CLASSES.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; heroClass.appendChild(o); }); if (state.hero.cls) heroClass.value=state.hero.cls; }
+    if (heroClass){
+      heroClass.innerHTML='';
+      CLASSES.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; heroClass.appendChild(o); });
+      if (state.hero.cls) heroClass.value=state.hero.cls;
+    }
     if (heroGoal) heroGoal.value=state.hero.goal||'';
   }
   function renderAll(){ renderHeader(); renderMissions(); renderShop(); renderProfile(); }
@@ -519,13 +636,13 @@
 
     // Focus (2/día)
     if (t.id==='newFocusBtnSmall' || t.id==='newFocusBtn'){
-      if (!canMakeFocus()) return showInfo('Límite diario','Solo 2 Focus al día.','blue');
-      const zone=state.hero.goal||'abdomen'; const f=mkFocus(zone); state.missions.unshift(f); incFocus(); save(); renderAll(); showPromptAcceptReject(f,'blue'); return;
+      if (!(state.dailyCounters && state.dailyCounters.focusMade<2)) return showInfo('Límite diario','Solo 2 Focus al día.','blue');
+      const zone=state.hero.goal||'abdomen'; const f=mkFocus(zone); state.missions.unshift(f); state.dailyCounters.focusMade++; save(); renderAll(); showPromptAcceptReject(f,'blue'); return;
     }
     // Clase (2/día)
     if (t.id==='newClassBtnSmall' || t.id==='newClassBtn'){
-      if (!canMakeClass()) return showInfo('Límite diario','Solo 2 misiones de clase al día.','purple');
-      const c=state.hero.cls||'Asesino'; const m=mkClassMission(c); state.missions.unshift(m); incClass(); save(); renderAll(); showPromptAcceptReject(m,'purple'); return;
+      if (!(state.dailyCounters && state.dailyCounters.classMade<2)) return showInfo('Límite diario','Solo 2 misiones de clase al día.','purple');
+      const c=state.hero.cls||'Asesino'; const m=mkClassMission(c); state.missions.unshift(m); state.dailyCounters.classMade++; save(); renderAll(); showPromptAcceptReject(m,'purple'); return;
     }
 
     // Tienda
@@ -582,7 +699,7 @@
     r.readAsText(f);
   });
 
-  // ----- Auto: diaria única / clase si no hay / plan urgentes -----
+  // ----- Auto: diaria / clase / urgentes -----
   function ensureDailyUniqueForToday(){
     const t=todayStr();
     if (state.lastDailyDateCreated===t) return;
@@ -592,7 +709,7 @@
     state.missions.unshift(mkDaily()); state.lastDailyDateCreated=t; save(); renderAll();
   }
   function ensureClassMissionIfNone(){
-    const hasPendingClass = state.missions.some(m=>m.type===TYPE.CLASS && m.status==='pending');
+    const hasPendingClass=state.missions.some(m=>m.type===TYPE.CLASS && m.status==='pending');
     if (!hasPendingClass){
       const c=state.hero.cls||'Asesino';
       const m=mkClassMission(c);
@@ -604,7 +721,6 @@
   // ----- Tick -----
   function tick(){
     const now=Date.now(); let dirty=false;
-    // timers
     $$('#missionsList .card').forEach(card=>{
       const id=card.getAttribute('data-id'); if(!id) return;
       const m=state.missions.find(x=>x.id===id);
@@ -633,9 +749,9 @@
   renderAll();
   setInterval(tick, 1000);
 
-  // Perfil inputs
-  if (heroName)  heroName.addEventListener('change', function(){ state.hero.name=this.value||'Amo'; save(); setHeader(); });
-  if (heroClass) heroClass.addEventListener('change', function(){ state.hero.cls=this.value; save(); });
+  // Perfil inputs (importante para refrescar la barra de clase al cambiar clase)
+  if (heroName)  heroName.addEventListener('change', function(){ state.hero.name=this.value||'Amo'; save(); renderHeader(); });
+  if (heroClass) heroClass.addEventListener('change', function(){ state.hero.cls=this.value; save(); renderHeader(); });
   if (heroGoal)  heroGoal.addEventListener('change', function(){ state.hero.goal=this.value; save(); });
 
 })();

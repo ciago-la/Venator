@@ -1,4 +1,5 @@
-import {$,$$,TYPE,todayStr,fmt} from './utils.js';
+// app/main.js · v15.1 (sin await import, sin refs raras)
+import {$,TYPE,todayStr,fmt} from './utils.js';
 import {state,save,gainXP,gainClassXP,applyNerf,decayNerf} from './state.js';
 import {showInfo,showWarn,showSuccess,showPunisher} from './notify.js';
 import {mkDaily} from './missions/daily.js';
@@ -6,9 +7,9 @@ import {mkFocus} from './missions/focus.js';
 import {mkClassMission,normClassName} from './missions/class.js';
 import {mkUrgent,planUrgentForTodayIfNeeded} from './missions/urgent.js';
 import {mkDungeon} from './missions/dungeon.js';
-import {renderShop,renderMissions,renderHeaderAndProfile,setHeader} from './ui.js';
+import {renderShop,renderMissions,renderHeaderAndProfile,setHeader, missionCard} from './ui.js';
 
-// ------------ Ciclos de día / generación única --------------
+// ---------- Día / generación única ----------
 function rolloverDaily(){
   const t=todayStr();
   if (!state.dailyCounters || state.dailyCounters.date!==t){
@@ -16,15 +17,16 @@ function rolloverDaily(){
     state.daysWithoutUrgent=(state.daysWithoutUrgent||0)+1;
   }
   if (state.lastSeenDay!==t){
-    // cerrar diarias pendientes de ayer
     state.missions.forEach(m=>{
       if(m.type===TYPE.DAILY && m.status==='pending' && m.createdAt.slice(0,10)!==t){
         if(Date.now()>new Date(m.dueAt).getTime()){
-          m.status='failed'; if(m.penalty){ if(m.penalty.coins) state.coins=Math.max(0,state.coins-m.penalty.coins); if(m.penalty.nerf) applyNerf(); }
+          m.status='failed';
+          if(m.penalty){ if(m.penalty.coins) state.coins=Math.max(0,state.coins-m.penalty.coins); if(m.penalty.nerf) applyNerf(); }
         }
       }
     });
-    state.lastSeenDay=t; state.urgentPlan={date:null,decided:false,willHave:false,fireAt:null,spawned:false};
+    state.lastSeenDay=t;
+    state.urgentPlan={date:null,decided:false,willHave:false,fireAt:null,spawned:false};
     save();
   }
 }
@@ -47,16 +49,17 @@ function triggerScheduledUrgentIfTime(){
   const u=mkUrgent(); const due=fireAt+5*3600*1000;
   if(now>due){
     u.createdAt=new Date(fireAt).toISOString(); u.dueAt=new Date(due).toISOString(); u.status='failed';
-    if(u.penalty){ if(u.penalty.coins) state.coins=Math.max(0,state.coins-u.penalty.coins); if(u.penalty.nerf) applyNerf(); if(u.penalty.nextHarder){ state.missions.unshift(harder(u)); showPunisher('Has fallado fuera de tiempo. Versión dura activada.'); } }
-  }else{
-    // activa en tiempo
+    if(u.penalty){
+      if(u.penalty.coins) state.coins=Math.max(0,state.coins-u.penalty.coins);
+      if(u.penalty.nerf) applyNerf();
+      if(u.penalty.nextHarder){ state.missions.unshift(harder(u)); showPunisher('Has fallado fuera de tiempo. Versión dura activada.'); }
+    }
   }
-  state.missions.unshift(u); state.weeklyUrgents = state.weeklyUrgents||{}; const wkKey=(new Date()).getWeekKey?new Date().getWeekKey():''; // opcional
-  p.spawned=true; save(); renderAll();
+  state.missions.unshift(u); p.spawned=true; save(); renderAll();
 }
 function harder(m){
   const n=JSON.parse(JSON.stringify(m));
-  n.id=crypto.randomUUID?crypto.randomUUID():String(Math.random());
+  n.id=Math.random().toString(36).slice(2);
   n.status='pending'; n.accepted=true;
   n.title=m.title+' — Versión dura'; n.dueAt=new Date(Date.now()+6*3600*1000).toISOString(); n.penalty=null;
   const f=(m.penalty&&m.penalty.harderFactor)?m.penalty.harderFactor:1.25;
@@ -64,7 +67,7 @@ function harder(m){
   return n;
 }
 
-// ------------------------ Acciones --------------------------
+// ---------- Acciones ----------
 function complete(m){
   if(!m || m.status!=='pending') return;
   if((m.type===TYPE.CLASS||m.type===TYPE.FOCUS) && !m.accepted) return showInfo('Acepta primero','Debes aceptar la misión.');
@@ -78,36 +81,64 @@ function fail(m){
   if(!m || m.status!=='pending') return;
   m.status='failed';
   let fired=false;
-  if(m.penalty){ if(m.penalty.coins) state.coins=Math.max(0,state.coins-m.penalty.coins); if(m.penalty.nerf) applyNerf(); if(m.penalty.nextHarder){ state.missions.unshift(harder(m)); fired=true; } }
+  if(m.penalty){
+    if(m.penalty.coins) state.coins=Math.max(0,state.coins-m.penalty.coins);
+    if(m.penalty.nerf) applyNerf();
+    if(m.penalty.nextHarder){ state.missions.unshift(harder(m)); fired=true; }
+  }
   save(); renderAll();
   if (fired) showPunisher('Has fallado '+m.title+'. Se activa la Versión dura 6h.');
   else showWarn('Misión fallida: '+m.title);
 }
 
-// ------------------------ Render ----------------------------
+// ---------- Render ----------
 function renderAll(){
   renderHeaderAndProfile();
 
   const list=$('#missionsList');
+  list.textContent='';
   const pend=state.missions.filter(x=>x.status==='pending');
   const hist=state.missions.filter(x=>x.status!=='pending').slice(0,8);
-  renderMissions(list, pend, {
-    accept:(m)=>{ m.accepted=true; save(); renderAll(); showSuccess('Has aceptado: '+m.title); },
-    reject:(m)=>{ m.status='rejected'; save(); renderAll(); showWarn('Has rechazado: '+m.title); },
-    done:  (m)=>complete(m),
-    fail:  (m)=>fail(m)
+
+  // cabecera y contador urgentes
+  const head=document.createElement('li'); head.className='card';
+  const small=document.createElement('div'); small.className='small';
+  const wk = (date=>{ // weekKey ligero local para la cabecera
+    const d=new Date(); const a=new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    a.setUTCDate(a.getUTCDate()+4-(a.getUTCDay()||7));
+    const y=new Date(Date.UTC(a.getUTCFullYear(),0,1));
+    const w=Math.ceil((((a-y)/86400000)+1)/7); return a.getUTCFullYear()+'-W'+('0'+w).slice(-2);
+  })();
+  small.textContent='⚡ Urgentes semana: '+((state.weeklyUrgents?.[wk]||0))+'/3';
+  head.appendChild(small); list.appendChild(head);
+
+  // pendientes
+  pend.forEach(m=>{
+    list.appendChild(missionCard(m,{
+      accept:(mm)=>{ mm.accepted=true; save(); renderAll(); showSuccess('Has aceptado: '+mm.title); },
+      reject:(mm)=>{ mm.status='rejected'; save(); renderAll(); showWarn('Has rechazado: '+mm.title); },
+      done:  (mm)=>complete(mm),
+      fail:  (mm)=>fail(mm)
+    }));
   });
+
+  // histórico
   if(hist.length){
-    const sep=document.createElement('li'); sep.className='card'; sep.appendChild(document.createElement('div')).className='small';
-    sep.firstChild.textContent='Histórico reciente'; list.appendChild(sep);
-    hist.forEach(m=> list.appendChild( (await import('./ui.js')).missionCard(m,{accept(){},reject(){},done(){},fail(){}} )); // simple
+    const sep=document.createElement('li'); sep.className='card';
+    const t=document.createElement('div'); t.className='small'; t.textContent='Histórico reciente';
+    sep.appendChild(t); list.appendChild(sep);
+    hist.forEach(m=>{
+      list.appendChild(missionCard(m,{
+        accept(){},reject(){},done(){},fail(){}
+      }));
+    });
   }
 
   renderShop();
   setHeader();
 }
 
-// ------------------------- UI -------------------------------
+// ---------- UI ----------
 document.addEventListener('click', e=>{
   const b=e.target.closest('button'); if(!b) return;
   if (b.id==='newFocusBtnSmall' || b.id==='newFocusBtn'){
@@ -124,19 +155,20 @@ document.addEventListener('click', e=>{
   }
 });
 
-// ------------------------ Tick ------------------------------
+// ---------- Tick ----------
 function tick(){
-  const now=Date.now(); let dirty=false;
+  const now=Date.now();
   document.querySelectorAll('#missionsList .card').forEach(card=>{
     const id=card.getAttribute('data-id'); if(!id) return;
     const m=state.missions.find(x=>x.id===id);
     const tmr=card.querySelector('.timer'); if(m&&tmr&&m.dueAt) tmr.textContent=fmt(new Date(m.dueAt).getTime()-now);
-    if (m && m.status==='pending' && m.dueAt && now>new Date(m.dueAt).getTime()){ fail(m); dirty=false; } // fail() ya guarda y renderiza
+    if (m && m.status==='pending' && m.dueAt && now>new Date(m.dueAt).getTime()){
+      fail(m); // ya guarda y re-renderiza
+    }
   });
-  if (dirty) { save(); renderAll(); }
 }
 
-// ------------------------ Boot ------------------------------
+// ---------- Boot ----------
 rolloverDaily();
 ensureDaily();
 ensureClassIfNone();

@@ -76,3 +76,15 @@ input,select{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(11
 .profile-row{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
 .profile-row input{min-width:160px}
 .badge{padding:2px 6px;border:1px solid rgba(110,168,255,.4);border-radius:6px;font-size:.85em}
+
+/* Notificación especial en rojo (Versión dura) */
+.notification-overlay.red {
+  background: rgba(255, 0, 0, 0.85);
+  border: 2px solid #ff4444;
+  color: #fff; /* el texto en blanco para que se lea */
+}
+
+.notification-overlay.red img {
+  max-width: 120px;
+  margin-bottom: 10px;
+}

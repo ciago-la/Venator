@@ -88,3 +88,27 @@ input,select{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(11
   max-width: 120px;
   margin-bottom: 10px;
 }
+/* Overlays por color (usar con .overlay-card) */
+.overlay-card.red {
+  background: rgba(180, 0, 0, 0.9);
+  border: 2px solid #ff4d4d;
+  color: #fff;
+  box-shadow: 0 0 24px rgba(255, 0, 0, 0.6);
+}
+.overlay-card.green {
+  background: rgba(0, 100, 0, 0.9);
+  border: 2px solid #3ddc84;
+  color: #fff;
+  box-shadow: 0 0 24px rgba(61, 220, 132, 0.6);
+}
+.overlay-card.yellow {
+  background: rgba(120, 90, 0, 0.95);
+  border: 2px solid #ffd166;
+  color: #fff;
+  box-shadow: 0 0 24px rgba(255, 209, 102, 0.6);
+}
+.overlay-card.red img {
+  max-width: 120px;
+  display: block;
+  margin: 0 auto 10px;
+}

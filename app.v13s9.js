@@ -122,6 +122,33 @@
       ovBody.textContent='';
       if (imgSrc){ const img=document.createElement('img'); img.src=imgSrc; img.alt=''; img.style.maxWidth='96px'; img.style.display='block'; img.style.margin='0 auto 8px'; ovBody.appendChild(img); }
       const p=document.createElement('div'); p.textContent=body||''; ovBody.appendChild(p);
+      function showInfo(message, colorClass = "", imagePath = null) {
+  const overlay = document.createElement("div");
+  overlay.className = `notification-overlay ${colorClass}`;
+
+  const box = document.createElement("div");
+  box.className = "notification-box";
+
+  if (imagePath) {
+    const img = document.createElement("img");
+    img.src = imagePath;
+    img.alt = "icono";
+    box.appendChild(img);
+  }
+
+  const msg = document.createElement("p");
+  msg.textContent = message;
+  box.appendChild(msg);
+
+  const btn = document.createElement("button");
+  btn.textContent = "Aceptar";
+  btn.onclick = () => document.body.removeChild(overlay);
+  box.appendChild(btn);
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
     }
     if (ovButtons){
       ovButtons.innerHTML='';
@@ -159,6 +186,7 @@
     Notification.requestPermission().then(p=>{
       if(p==='granted') showInfo('Notificaciones','Activadas correctamente.','green');
       else showInfo('Notificaciones','Permiso denegado o ignorado.','yellow');
+      
     });
   }
   function notifyNow(title,body){ try{ if('Notification' in window && Notification.permission==='granted') new Notification(title,{body}); }catch(_){ } }
@@ -379,7 +407,7 @@
     // equipar / quitar
     if (t.dataset.toggle==='1' && t.dataset.cosm){
       const id=t.dataset.cosm; if (!state.cosmeticsOwned.includes(id)) return;
-      if (state.equipment.includes(id)) { const i=state.equipment.indexOf(id); state.equipment.splice(i,1); showInfo('Equipo','Has quitado '+id.replace('equip_','').replaceAll('_',' ') + '.', 'blue'); }
+      if (state.equipment.includes(id)) { const i=state.equipment.indexOf(id); state.equipment.splice(i,1); +id.replace('equip_','').replaceAll('_',' ') + '.', 'blue'); }
       else { state.equipment.push(id); showSuccess('Has equipado '+id.replace('equip_','').replaceAll('_',' ')+'.'); }
       save(); renderShop(); return;
     }

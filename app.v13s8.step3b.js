@@ -159,7 +159,15 @@
     shopConsumibles.textContent=''; shopEsteticos.textContent=''; inventoryList.textContent='';
     // consumibles
     SHOP.consumibles.forEach(it=>{
-      const li=el('li','card'); const row=el('div','itemrow'); row.appendChild(iconImgSmall(PNG.equip_gafas));
+      const li=el('li','card'); const row=el('div','itemrow'); 
+      // icono correcto según ID
+const icon = it.id==='time_potion' ? PNG.consum_time
+           : it.id==='str_potion'  ? PNG.consum_str
+           : it.id==='exp_potion'  ? PNG.consum_exp
+           : it.id==='cure'        ? PNG.consum_cure
+           : PNG.equip_gafas; // fallback (si algo falla)
+row.appendChild(iconImgSmall(icon));
+
       const h=el('h4'); h.append(it.name+' '); h.appendChild(el('span','badge','🪙 '+it.price)); row.appendChild(h);
       li.appendChild(row); li.appendChild(el('div','small',it.desc));
       const btns=el('div','btnrow'); const b=el('button',null,'Comprar'); b.dataset.buy=it.id; btns.appendChild(b); li.appendChild(btns);
@@ -180,7 +188,17 @@
     Object.keys(state.inventory).forEach(k=>{
       const count=state.inventory[k]; if(!count) return;
       const pretty = k==='time_potion'?'Poción de tiempo':k==='str_potion'?'Poción de fuerza':k==='exp_potion'?'Poción de EXP':k==='cure'?'Curas':k;
-      const li=el('li','card'); const row=el('div','itemrow'); row.appendChild(iconImgSmall(PNG.equip_gafas)); row.appendChild(el('h4',null, pretty+' × '+count)); li.appendChild(row);
+      const li=el('li','card'); const row=el('div','itemrow'); const icon = k==='time_potion' ? PNG.consum_time
+           : k==='str_potion'  ? PNG.consum_str
+           : k==='exp_potion'  ? PNG.consum_exp
+           : k==='cure'        ? PNG.consum_cure
+           : k==='equip_dagas' ? PNG.equip_dagas
+           : k==='equip_arco_rojo' ? PNG.equip_arco_rojo
+           : k==='equip_gafas' ? PNG.equip_gafas
+           : k==='equip_ropa_negra' ? PNG.equip_ropa_negra
+           : PNG.equip_gafas; // fallback
+row.appendChild(iconImgSmall(icon));
+ row.appendChild(el('h4',null, pretty+' × '+count)); li.appendChild(row);
       const btns=el('div','btnrow');
       if (k==='exp_potion'){ const b=el('button',null,'Usar (+20% 30min)'); b.dataset.useGlobal='exp_potion'; btns.appendChild(b); }
       else if (k==='cure'){ const b=el('button',null,'Usar (quitar nerf)'); b.dataset.useGlobal='cure'; btns.appendChild(b); }

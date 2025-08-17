@@ -638,3 +638,80 @@
   if (heroGoal)  heroGoal.addEventListener('change', function(){ state.hero.goal=this.value; save(); });
 
 })();
+
+// Función para generar misión de clase
+function mkClassMission(clase) {
+    const classTasks = {
+        "asesino": [
+            "Saltos de pliometría x10 cada lado x2 rondas",
+            "Burpees explosivos x12",
+            "Correr sigilosamente 10 min",
+            "Escuchar una conversación sin ser descubierto (2 min)"
+        ],
+        "guerrero": [
+            "Flexiones con peso x10",
+            "Sentadillas profundas x20",
+            "Practica 3 golpes de arma pesada x10 reps cada uno",
+            "Combina 5 golpes seguidos sin parar"
+        ],
+        "arquero": [
+            "20 pasos de rana",
+            "Dispara 50 flechas",
+            "20 pasos de cocodrilo",
+            "Dispara 10 flechas saltando"
+        ],
+        "espía": [
+            "Estiramientos de cadera 30s cada uno",
+            "Equilibrio 1 pierna 30s cada una",
+            "Lanza 30 cuchillos",
+            "Aprende lanzamiento desde 4 direcciones"
+        ],
+        "mago": [
+            "1 min punching ball x2",
+            "Juego de reflejos con pelota",
+            "Patadas con reacción rápida x20",
+            "Aprende 3 golpes con callado"
+        ],
+        "maraton": [
+            "Corre 5 km en 30 min",
+            "4 sprints de 100 m",
+            "Corre 1 km en 2 min",
+            "Corre 10 km en 1h"
+        ],
+        "amigo del dragón": [
+            "Aprende un movimiento de parkour 10 veces",
+            "Derrota a un contrincante",
+            "Haz un recorrido de 3 obstáculos",
+            "Aprende una patada y repítela 20 veces"
+        ],
+        "saltamontes": [
+            "Entrena fuerza de agarre (aguanta 20s, 10 veces)",
+            "Haz un bloque de escalada 3 veces",
+            "Haz una vía de escalada 3 veces",
+            "Escala algo no pensado para ello"
+        ]
+    };
+
+    const tareas = [];
+    if (classTasks[clase]) {
+        // selecciona 2 pruebas aleatorias
+        while (tareas.length < 2) {
+            const idx = Math.floor(Math.random() * classTasks[clase].length);
+            const tarea = classTasks[clase][idx];
+            if (!tareas.includes(tarea)) {
+                tareas.push(tarea);
+            }
+        }
+    }
+
+    return {
+        id: "class_" + Date.now(),
+        type: "class",
+        name: "Misión de Clase (" + clase + ")",
+        requirements: tareas,
+        reward: { xp: 70, coins: 9 },
+        duration: 12 * 60 * 60, // 12h
+        startTime: Date.now(),
+        status: "active"
+    };
+}

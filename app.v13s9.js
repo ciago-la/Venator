@@ -49,6 +49,8 @@
     consum_cure: 'assets/consum_cure.png',
     // castigador
     castigador:  'assets/castigador.png'
+    <img src="assets/castigador.png" alt="Castigador">
+
   };
 
   // --- estado ---

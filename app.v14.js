@@ -123,6 +123,21 @@
     'Saltamontes':['Agarre 20s×10','Agarre con peso 30rep/lado','Bloque ×3','Vía ×3','Escala no diseñado','Saltos en escalada','Rápel impro'],
     'Guerrero':['Repite diaria','Repite focus','Golpes arma pesada 3×10','Combo arma pesada 1 min','Duplica diaria','Duplica focus','3 golpes “Guts” ×10','Combo 5 “Guts”','Combo 1 min “Guts”','Inventa golpe','Fabrica arma pesada']
   };
+  function normClassName(cls) {
+  if (!cls) return 'Asesino';
+  const s = cls.toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  // mapeos tolerantes a acentos/espacios
+  if (s.includes('guerrero')) return 'Guerrero';
+  if (s.includes('asesin'))   return 'Asesino';
+  if (s.includes('mago'))     return 'Mago';
+  if (s.includes('arquero'))  return 'Arquero';
+  if (s.includes('espia'))    return 'Espía';
+  if (s.includes('maraton'))  return 'Maratón';
+  if (s.includes('drag'))     return 'Amigo del dragón';
+  if (s.includes('saltam'))   return 'Saltamontes';
+  return 'Asesino';
+}
+
   function scaleTextForLevel(txt,lvl){
     const f=Math.pow(1.1,Math.max(0,lvl-1));
     let out=txt.replace(/(\d+)\s*\/\s*(\d+)/g,(_,a,b)=>Math.max(1,Math.round(a*f))+'/'+Math.max(1,Math.round(b*f)));
@@ -156,26 +171,45 @@
   }
   // ---- Misión de Clase (ALEATORIA + escalado por nivel de cada clase)
   function mkClassMission(cls){
-    const now=new Date();
-    const pool=CLASS_POOL_STRINGS[cls]||['Técnica 1','Técnica 2','Técnica 3','Técnica 4'];
-    const cp=classObj();
-    const chosen=pickN(pool,2);
-    return {
-      id:uid(),
-      type:TYPE.CLASS,
-      title:'Misión de clase — '+cls,
-      desc:'Entrenamiento específico de tu clase.',
-      createdAt:now.toISOString(),
-      dueAt:new Date(now.getTime()+12*3600*1000).toISOString(),
-      status:'pending',
-      accepted:false,
-      baseXP:0,
-      baseCoins:9,
-      classXP:70,
-      requirements:chosen.map(s=>({label:scaleTextForLevel(s,cp.level)})),
-      penalty:null
-    };
+  const now = new Date();
+  const clean = normClassName(cls);
+  let pool  = CLASS_POOL_STRINGS[clean];
+  if (!Array.isArray(pool)) pool = [];
+
+  // por si el pool está vacío o viene algo raro
+  pool = pool.filter(Boolean);
+  if (pool.length < 2) {
+    pool = pool.concat(['Técnica básica A','Técnica básica B','Técnica básica C']).filter(Boolean);
   }
+
+  const cp = classObj(); // nivel de la clase activa
+  // elegimos 2 distintas al azar
+  const chosen = [];
+  const bag = [...pool];
+  while (chosen.length < 2 && bag.length) {
+    const i = (Math.random() * bag.length) | 0;
+    const t = bag.splice(i,1)[0];
+    if (t && !chosen.includes(t)) chosen.push(t);
+  }
+  while (chosen.length < 2) chosen.push('Ejercicio complementario'); // por si acaso
+
+  return {
+    id: uid(),
+    type: TYPE.CLASS,
+    title: 'Misión de clase — ' + clean,
+    desc: 'Entrenamiento específico de tu clase.',
+    createdAt: now.toISOString(),
+    dueAt: new Date(now.getTime() + 12*3600*1000).toISOString(),
+    status: 'pending',
+    accepted: false,
+    baseXP: 0,
+    baseCoins: 9,
+    classXP: 70,
+    requirements: chosen.map(s => ({ label: scaleTextForLevel(s, cp.level) })),
+    penalty: null
+  };
+}
+
   // Exponer por si tu HTML la llama directamente
   window.mkClassMission = mkClassMission;
 

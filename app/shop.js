@@ -7,6 +7,7 @@ const PNG={
   equip_dagas:'assets/equip_dagas.png',
   equip_gafas:'assets/equip_gafas.png',
   equip_ropa_negra:'assets/equip_ropa_negra.png',
+  equip_ojodelvendabal:'assets/ojodelvendabal',
   consum_time:'assets/consum_time.png',
   consum_str:'assets/consum_str.png',
   consum_exp:'assets/consum_exp.png',
@@ -19,6 +20,7 @@ export const SHOP={consumibles:[
   {id:'exp_potion',  name:'Poción de EXP (+20% 30m)',desc:'Ganas +20% EXP durante 30 min.', price:50},
   {id:'cure',        name:'Curas (quita nerf)',      desc:'Elimina el -20% de EXP acumulado.', price:20}
 ], esteticos:[
+  {id:'ojodelvendabal', name:'ojo del vendabal',    desc:'Cosmético', price:60, img: PNG.ojodelvendabal},
   {id:'equip_dagas', name:'Dagas dobles',    desc:'Cosmético', price:60, img: PNG.equip_dagas},
   {id:'equip_arco_rojo', name:'Arco rojo',   desc:'Cosmético', price:80, img: PNG.equip_arco_rojo},
   {id:'equip_gafas', name:'Gafas de combate',desc:'Cosmético', price:40, img: PNG.equip_gafas},
@@ -26,7 +28,7 @@ export const SHOP={consumibles:[
 ]};
 
 export function buy(id){
-  const PRICE={time_potion:30,str_potion:40,exp_potion:50,cure:20,equip_dagas:60,equip_arco_rojo:80,equip_gafas:40,equip_ropa_negra:70};
+  const PRICE={time_potion:30,str_potion:40,exp_potion:50,cure:20,equip_dagas:60,equip_arco_rojo:80,equip_gafas:40,equip_ropa_negra:70,ojodelvendabal:10};
   const price=PRICE[id];
   if ((state.coins|0)<price) return showWarn('No tienes monedas suficientes.');
   state.coins-=price;

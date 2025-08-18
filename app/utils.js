@@ -1,6 +1,9 @@
 export const VER='v15-mod';
 export const TYPE={DAILY:'daily',CLASS:'class',URGENT:'urgent',FOCUS:'focus',DUNGEON:'dungeon'};
-export const CLASSES=['Guerrero','Asesino','Mago','Arquero','Espía','Maratón','Amigo del dragón','Saltamontes'];
+// Clases base (siempre disponibles) y clases extra (bloqueadas hasta nivel 10 de clase)
+export const BASE_CLASSES = ['Guerrero','Asesino','Mago','Arquero','Espía','Maratón','Amigo del dragón','Saltamontes'];
+export const EXTRA_CLASSES = ['cetrero','invocador','forjador','centinela','bestia','domador del fuego','aviador','rompehielos','lanza oscura','titan']; // ← añade aquí las nuevas que quieras
+export const CLASSES = [...BASE_CLASSES, ...EXTRA_CLASSES]; // todas, por si las necesitas en otros módulos
 
 export const $=s=>document.querySelector(s);
 export const $$=s=>Array.from(document.querySelectorAll(s));

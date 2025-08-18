@@ -1,5 +1,6 @@
 import {$,$$,el,fmt,TYPE,VER,xpNeedFor,cxpNeedFor,weekKey,BASE_CLASSES,EXTRA_CLASSES} from './utils.js';
-import {state,save,getProfiles,setProfiles,classObj, isClassUnlocked} from './state.js';
+import {state,save,getProfiles,setProfiles,classObj,isClassUnlocked} from './state.js';
+import {showSuccess} from './notify.js';
 import {showInfo,showWarn,showSuccess,showPunisher} from './notify.js';
 import {SHOP,buy,toggleEquip,icons} from './shop.js';
 
@@ -91,7 +92,6 @@ export function renderHeaderAndProfile(){
   const heroName=$('#heroName'), heroClass=$('#heroClass'), heroGoal=$('#heroGoal');
   if (heroName) heroName.value=state.hero.name||'';
  if (heroClass && !heroClass.childElementCount){
-  // limpiamos
   heroClass.innerHTML = '';
 
   // 1) Clases base (siempre visibles)
@@ -101,17 +101,16 @@ export function renderHeaderAndProfile(){
     heroClass.appendChild(o);
   });
 
-  // 2) Clases extra: solo si están desbloqueadas
-  EXTRA_CLASSES.forEach(c=>{
+  // 2) Clases extra → SOLO las que ya están desbloqueadas (las otras ni aparecen)
+  EXTRA_CLASSES.filter(c=> isClassUnlocked(c)).forEach(c=>{
     const o=document.createElement('option');
-    o.value=c; o.textContent = isClassUnlocked(c) ? c : (c + ' (bloqueada)');
-    // si NO está desbloqueada, la dejamos deshabilitada
-    if (!isClassUnlocked(c)) o.disabled = true;
+    o.value=c; o.textContent=c;
     heroClass.appendChild(o);
   });
 
-  // valor actual (si estaba en una bloqueada, volverá a una base)
-  heroClass.value = isClassUnlocked(state.hero.cls) ? state.hero.cls : 'Asesino';
+  // Ajusta el valor actual si fuese una clase aún bloqueada
+  const current = state.hero.cls || 'Asesino';
+  heroClass.value = isClassUnlocked(current) ? current : 'Asesino';
 }
 
   if (heroGoal) heroGoal.value=state.hero.goal||'';
@@ -119,6 +118,13 @@ export function renderHeaderAndProfile(){
   if (heroName) heroName.onchange=()=>{ state.hero.name=heroName.value||'Amo'; save(); setHeader(); };
   if (heroClass) heroClass.onchange=()=>{ state.hero.cls=heroClass.value; save(); setHeader(); };
   if (heroGoal)  heroGoal.onchange =()=>{ state.hero.goal=heroGoal.value; save(); };
+  // Notificación de nueva clase extra desbloqueada
+if (state.lastUnlockedExtra){
+  showSuccess('¡Nueva clase desbloqueada: '+state.lastUnlockedExtra+'!');
+  state.lastUnlockedExtra = null; // ya avisamos, limpiamos
+  save();
+}
+
 }
 
 export function refreshProfileList(){

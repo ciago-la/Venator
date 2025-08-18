@@ -1,21 +1,39 @@
+// app/state.js · v15.2 — XP por clase, con nombres normalizados
 import {CLASSES,xpNeedFor,cxpNeedFor} from './utils.js';
+import {normClassName} from './missions/class.js';
 
 const LS='alter_v13s5';
 const LS_PROFILES='alter_profiles_v1';
 
 export let state = migrate(load());
 
+// ------------------- almacenamiento -------------------
 export function save(){ localStorage.setItem(LS, JSON.stringify(state)); }
 export function load(){ try{return JSON.parse(localStorage.getItem(LS));}catch(_){return null;} }
 
+// ------------------- migración/forma de datos -------------------
+function emptyClassProgress(){
+  const obj={};
+  CLASSES.forEach(c=>{
+    const canon = normClassName(c);
+    obj[canon] = { level: 1, xp: 0 };
+  });
+  return obj;
+}
+
 function migrate(s){
   if(!s) s={};
+  // héroe básico
   if(!s.hero) s.hero={name:'Amo', cls:'Asesino', goal:'abdomen'};
+
+  // numéricos base
   if(typeof s.level!=='number') s.level=1;
   if(typeof s.xp!=='number') s.xp=0;
   if(typeof s.coins!=='number') s.coins=0;
   if(typeof s.expBuffUntil!=='number') s.expBuffUntil=0;
   if(typeof s.expNerfCount!=='number') s.expNerfCount=0;
+
+  // listas/objetos
   if(!Array.isArray(s.missions)) s.missions=[];
   if(!s.weeklyUrgents) s.weeklyUrgents={};
   if(!s.inventory) s.inventory={ time_potion:1, str_potion:0, exp_potion:0, cure:0 };
@@ -24,38 +42,94 @@ function migrate(s){
   if(!s.urgentPlan) s.urgentPlan={date:null,decided:false,willHave:false,fireAt:null,spawned:false};
   if(typeof s.daysWithoutUrgent!=='number') s.daysWithoutUrgent=0;
   if(!s.dailyCounters) s.dailyCounters={date:null, focusMade:0, classMade:0};
-  if(!s.classProgress){ s.classProgress={}; CLASSES.forEach(c=> s.classProgress[c]={level:1,xp:0}); }
   if(typeof s.dungeonKeys!=='number') s.dungeonKeys=0;
   if(typeof s.lastLevelChecked!=='number') s.lastLevelChecked=s.level;
+
+  // --- AQUÍ EL CAMBIO IMPORTANTE: progreso por clase, con nombres normalizados ---
+  // 1) Si viene el formato viejo (classLevel / classXP), lo volcamos en su clase actual.
+  if(typeof s.classLevel==='number' || typeof s.classXP==='number'){
+    const canon = normClassName(s.hero?.cls || 'Asesino');
+    s.classProgress = s.classProgress || emptyClassProgress();
+    s.classProgress[canon] = {
+      level: Math.max(1, s.classLevel || 1),
+      xp: Math.max(0, s.classXP || 0)
+    };
+    delete s.classLevel;
+    delete s.classXP;
+  }
+
+  // 2) Si no hay classProgress, lo creamos vacío para todas las clases (independientes).
+  if(!s.classProgress) s.classProgress = emptyClassProgress();
+
+  // 3) Si hay claves raras por acentos o mayúsculas, las normalizamos ahora.
+  const fixed={};
+  Object.keys(s.classProgress).forEach(k=>{
+    const canon = normClassName(k);
+    const cur = s.classProgress[k] || {level:1,xp:0};
+    if(!fixed[canon]) fixed[canon] = {level:1,xp:0};
+    // si había duplicados (p.ej. “Espía” y “espia”), nos quedamos con el mejor nivel/xp
+    fixed[canon].level = Math.max(fixed[canon].level, cur.level|0 || 1);
+    fixed[canon].xp    = Math.max(fixed[canon].xp,    cur.xp|0    || 0);
+  });
+  // asegura que existen todas
+  CLASSES.forEach(c=>{
+    const canon = normClassName(c);
+    if(!fixed[canon]) fixed[canon]={level:1,xp:0};
+  });
+  s.classProgress = fixed;
+
   return s;
 }
 
-// getters
-export function classObj(){ const c=state.hero.cls||'Asesino'; if(!state.classProgress[c]) state.classProgress[c]={level:1,xp:0}; return state.classProgress[c]; }
+// ------------------- helpers de clase -------------------
+export function activeClassName(){
+  return normClassName(state.hero?.cls || 'Asesino');
+}
 
-// economía
+export function classObj(){
+  const cls = activeClassName();
+  if(!state.classProgress) state.classProgress = {};
+  if(!state.classProgress[cls]) state.classProgress[cls] = {level:1, xp:0};
+  return state.classProgress[cls];
+}
+
+// ------------------- economía general -------------------
 export function gainXP(base){
   let g=base|0;
   if(Date.now()<state.expBuffUntil) g=Math.round(g*1.2);
   if(state.expNerfCount>0) g=Math.round(g*0.8);
-  const needBefore=xpNeedFor(state.level);
+
   state.xp+=g;
-  while(state.xp>=xpNeedFor(state.level)){ state.xp-=xpNeedFor(state.level); state.level++; }
-  // llaves por niveles (cada 3)
+  while(state.xp>=xpNeedFor(state.level)){
+    state.xp -= xpNeedFor(state.level);
+    state.level++;
+  }
+
+  // llaves cada 3 niveles
   const beforeTier=Math.floor((state.lastLevelChecked||1)/3);
   const afterTier =Math.floor(state.level/3);
   const toAward=Math.max(0,afterTier-beforeTier);
-  if(toAward>0){ state.dungeonKeys+=toAward; state.lastLevelChecked=state.level; }
+  if(toAward>0){
+    state.dungeonKeys += toAward;
+    state.lastLevelChecked = state.level;
+  }
 }
 
+// ------------------- economía de clase (por clase) -------------------
 export function gainClassXP(base){
-  const cp=classObj(); cp.xp+=(base|0); 
-  while(cp.xp>=cxpNeedFor(cp.level)){ cp.xp-=cxpNeedFor(cp.level); cp.level++; }
+  const add = base|0;
+  const prog = classObj(); // SIEMPRE usa la clase ACTIVA normalizada
+  prog.xp += add;
+  while(prog.xp >= cxpNeedFor(prog.level)){
+    prog.xp -= cxpNeedFor(prog.level);
+    prog.level++;
+  }
 }
 
-export const applyNerf=()=>{ state.expNerfCount=Math.min(9,(state.expNerfCount||0)+3); };
-export const decayNerf =()=>{ if(state.expNerfCount>0) state.expNerfCount--; };
+// ------------------- otros utilitarios -------------------
+export const applyNerf =()=>{ state.expNerfCount=Math.min(9,(state.expNerfCount||0)+3); };
+export const decayNerf  =()=>{ if(state.expNerfCount>0) state.expNerfCount--; };
 
-// perfiles
+// ------------------- perfiles (guardar/cargar/exportar) -------------------
 export function getProfiles(){ try{ return JSON.parse(localStorage.getItem(LS_PROFILES))||{}; }catch(_){ return {}; } }
 export function setProfiles(p){ localStorage.setItem(LS_PROFILES, JSON.stringify(p)); }

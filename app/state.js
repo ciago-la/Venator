@@ -63,6 +63,12 @@ s.classProgress = fixed;// --- Clases desbloqueadas ---
 if (!Array.isArray(s.unlockedClasses)) {
   s.unlockedClasses = BASE_CLASSES.slice(); // copia
 } else {
+  const set = new Set(s.unlockedClasses);
+  BASE_CLASSES.forEach(c=> set.add(c));
+  s.unlockedClasses = Array.from(set);
+}
+// marcador de última clase extra desbloqueada (para notificación en UI)
+if (typeof s.lastUnlockedExtra !== 'string') s.lastUnlockedExtra = null;
   // normaliza nombres y quita duplicados
   const set = new Set();
   s.unlockedClasses.forEach(name=>{
@@ -77,9 +83,16 @@ if (!Array.isArray(s.unlockedClasses)) {
     else if (canon.includes('maraton')) set.add('Maratón');
     else if (canon.includes('dragon')) set.add('Amigo del dragón');
     else if (canon.includes('saltam')) set.add('Saltamontes');
-    else if (canon.includes('palad')) set.add('Paladín');
-    else if (canon.includes('nigrom')) set.add('Nigromante');
-    else if (canon.includes('berserk')) set.add('Berserker');
+    else if (canon.includes('cetrero')) set.add('cetrero');
+    else if (canon.includes('invocador')) set.add('invocador');
+    else if (canon.includes('forjador')) set.add('forjador');
+    else if (canon.includes('centinela')) set.add('centinela');
+    else if (canon.includes('bestia')) set.add('bestia');
+    else if (canon.includes('domadordelfuego')) set.add('domador del fuego');
+    else if (canon.includes('aviador')) set.add('aviador');
+    else if (canon.includes('rompehielos')) set.add('rompehielos');
+    else if (canon.includes('titan')) set.add('titan');
+    else if (canon.includes('lanzaoscura')) set.add('lanza oscura');
   });
   // asegura que al menos las base están
   BASE_CLASSES.forEach(c=> set.add(c));
@@ -123,6 +136,20 @@ export function classObj(){
 export function isClassUnlocked(name){
   return (state.unlockedClasses||[]).includes(name);
 }
+export function isClassUnlocked(name){
+  return (state.unlockedClasses||[]).includes(name);
+}
+
+// Desbloquea 1 clase extra aleatoria (si queda alguna bloqueada)
+function unlockOneRandomExtra(){
+  state.unlockedClasses = state.unlockedClasses || BASE_CLASSES.slice();
+  const locked = EXTRA_CLASSES.filter(c => !state.unlockedClasses.includes(c));
+  if (!locked.length) return; // ya no quedan
+  const pick = locked[(Math.random()*locked.length)|0];
+  state.unlockedClasses.push(pick);
+  state.lastUnlockedExtra = pick;  // la UI mostrará el aviso y luego limpiará
+}
+
 
 // Desbloquea todas las EXTRA_CLASSES si el jugador alcanza nivel 10 en cualquier clase
 function unlockExtrasIfEligible(){
@@ -161,16 +188,21 @@ export function gainXP(base){
 // ------------------- economía de clase (por clase) -------------------
 export function gainClassXP(base){
   const add = base|0;
-  const prog = classObj(); // SIEMPRE usa la clase ACTIVA normalizada
+  const prog = classObj(); // progreso de la clase ACTIVA
+  const before = prog.level;
+
   prog.xp += add;
   while(prog.xp >= cxpNeedFor(prog.level)){
     prog.xp -= cxpNeedFor(prog.level);
     prog.level++;
   }
-    // tras subir xp/levels de clase, verifica desbloqueos
-  unlockExtrasIfEligible();
 
+  // Si acabamos de cruzar a nivel 10 (antes <10 y ahora >=10) → desbloquea 1 extra aleatoria
+  if (before < 10 && prog.level >= 10) {
+    unlockOneRandomExtra();
+  }
 }
+
 
 // ------------------- otros utilitarios -------------------
 export const applyNerf =()=>{ state.expNerfCount=Math.min(9,(state.expNerfCount||0)+3); };

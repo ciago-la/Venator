@@ -7,7 +7,7 @@ const PNG={
   equip_dagas:'assets/equip_dagas.png',
   equip_gafas:'assets/equip_gafas.png',
   equip_ropa_negra:'assets/equip_ropa_negra.png',
-  equip_ojodelvendabal:'assets/ojodelvendabal',
+  equip_ojodelvendabal:'assets/ojodelvendabal.png',
   consum_time:'assets/consum_time.png',
   consum_str:'assets/consum_str.png',
   consum_exp:'assets/consum_exp.png',
@@ -20,7 +20,7 @@ export const SHOP={consumibles:[
   {id:'exp_potion',  name:'Poción de EXP (+20% 30m)',desc:'Ganas +20% EXP durante 30 min.', price:50},
   {id:'cure',        name:'Curas (quita nerf)',      desc:'Elimina el -20% de EXP acumulado.', price:20}
 ], esteticos:[
-  {id:'ojodelvendabal', name:'ojo del vendabal',    desc:'Cosmético', price:60, img: PNG.ojodelvendabal},
+  {id:'ojodelvendabal', name:'ojo del vendabal',    desc:'Cosmético', price:10, img: PNG.ojodelvendabal},
   {id:'equip_dagas', name:'Dagas dobles',    desc:'Cosmético', price:60, img: PNG.equip_dagas},
   {id:'equip_arco_rojo', name:'Arco rojo',   desc:'Cosmético', price:80, img: PNG.equip_arco_rojo},
   {id:'equip_gafas', name:'Gafas de combate',desc:'Cosmético', price:40, img: PNG.equip_gafas},

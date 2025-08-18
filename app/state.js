@@ -1,5 +1,6 @@
 // app/state.js · v15.2 — XP por clase, con nombres normalizados
-import {CLASSES,xpNeedFor,cxpNeedFor} from './utils.js';
+import {CLASSES, BASE_CLASSES, EXTRA_CLASSES, xpNeedFor, cxpNeedFor} from './utils.js';
+
 import {normClassName} from './missions/class.js';
 
 const LS='alter_v13s5';
@@ -57,6 +58,33 @@ function migrate(s){
     delete s.classLevel;
     delete s.classXP;
   }
+s.classProgress = fixed;// --- Clases desbloqueadas ---
+// Si no existe, empezamos desbloqueando SOLO las base.
+if (!Array.isArray(s.unlockedClasses)) {
+  s.unlockedClasses = BASE_CLASSES.slice(); // copia
+} else {
+  // normaliza nombres y quita duplicados
+  const set = new Set();
+  s.unlockedClasses.forEach(name=>{
+    // usa la misma normalización de nombres que class.js
+    const canon = (name||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    // mapeo mínimo para normalizar (igual que en normClassName)
+    if (canon.includes('guerrero')) set.add('Guerrero');
+    else if (canon.includes('asesin')) set.add('Asesino');
+    else if (canon.includes('mago')) set.add('Mago');
+    else if (canon.includes('arquero')) set.add('Arquero');
+    else if (canon.includes('espia')) set.add('Espía');
+    else if (canon.includes('maraton')) set.add('Maratón');
+    else if (canon.includes('dragon')) set.add('Amigo del dragón');
+    else if (canon.includes('saltam')) set.add('Saltamontes');
+    else if (canon.includes('palad')) set.add('Paladín');
+    else if (canon.includes('nigrom')) set.add('Nigromante');
+    else if (canon.includes('berserk')) set.add('Berserker');
+  });
+  // asegura que al menos las base están
+  BASE_CLASSES.forEach(c=> set.add(c));
+  s.unlockedClasses = Array.from(set);
+}
 
   // 2) Si no hay classProgress, lo creamos vacío para todas las clases (independientes).
   if(!s.classProgress) s.classProgress = emptyClassProgress();
@@ -92,6 +120,21 @@ export function classObj(){
   if(!state.classProgress[cls]) state.classProgress[cls] = {level:1, xp:0};
   return state.classProgress[cls];
 }
+export function isClassUnlocked(name){
+  return (state.unlockedClasses||[]).includes(name);
+}
+
+// Desbloquea todas las EXTRA_CLASSES si el jugador alcanza nivel 10 en cualquier clase
+function unlockExtrasIfEligible(){
+  try{
+    const anyLvl10 = Object.values(state.classProgress||{}).some(p => (p?.level||1) >= 10);
+    if (!anyLvl10) return;
+    state.unlockedClasses = state.unlockedClasses || BASE_CLASSES.slice();
+    EXTRA_CLASSES.forEach(c=>{
+      if (!state.unlockedClasses.includes(c)) state.unlockedClasses.push(c);
+    });
+  }catch(_){}
+}
 
 // ------------------- economía general -------------------
 export function gainXP(base){
@@ -124,6 +167,9 @@ export function gainClassXP(base){
     prog.xp -= cxpNeedFor(prog.level);
     prog.level++;
   }
+    // tras subir xp/levels de clase, verifica desbloqueos
+  unlockExtrasIfEligible();
+
 }
 
 // ------------------- otros utilitarios -------------------

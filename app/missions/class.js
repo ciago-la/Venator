@@ -25,6 +25,44 @@ export const CLASS_POOL = {
   'Amigo del dragón': ['Derrota a 1','Recorrido 3 obs','Movimiento volador ×10','Derribo ×10','Patada ×10','Puñetazo ×10','Recorrido 10 obs','Derrota a 5','Arma marcial'],
   'Saltamontes': ['Agarre 20s×10','Agarre con peso 30rep/lado','Bloque ×3','Vía ×3','Escala no diseñado','Saltos en escalada','Rápel impro'],
   'Guerrero': ['Repite diaria','Repite focus','Golpes arma pesada 3×10','Combo arma pesada 1 min','Duplica diaria','Duplica focus','3 golpes “Guts” ×10','Combo 5 “Guts”','Combo 1 min “Guts”','Inventa golpe','Fabrica arma pesada']
+export const CLASS_POOL = {
+  // …lo que ya hay…
+
+  'cetrero': [
+    'lanza y atrapa una pelota contra la pared 50 veces sin que se caiga',
+    'atrapa un objeto lanzado por otra persona con la mano no dominante 20 veces',
+    'coloca 5 objetos pequeños a distintas distancias y recogelos en orden lo más rápido posible',
+    '60 segundos de plancha mientras mantienes en equilibrio un objeto en la espalda',
+    'Sentadilla goblet 20',
+    'Remo con barra 15',
+    'Paseo del oso 30 pasos',
+    'Cargada con kettlebell 12'
+  ],
+
+  'invocador': [
+    'Aguanta la respiración después de una exhalación completa el máximo tiempo posible (5',
+    'Haz 10 burpees gritando el número en voz alta en cada uno',
+    'Mantén sentadilla isométrica profunda mientras “invocas” durante 45 s',
+    'diseña una criatura, su comportamiento y hábitat',
+    'tai chi',
+    'Marcha con banda 40 pasos',
+    'Hip thrust 20',
+    'Remo invertido 12'
+  ],
+
+  'forjador': [
+    'golpea con una maza un neumático 50 veces por lado',
+    'levanta y baja una mochila cargada 20 veces por lado',
+    'manten agarre colgado de una barra con peso adicional 30 sx3 rondas',
+    'carga objeto pesado y muévelo 10 m x 5 rondas',
+    'flexion, apoya codos y vuelve a manos. x 7',
+    'forja un cuchillo',
+    'sometete a calor durante 20 min',
+    'carrera suave 20 min'
+  ],
+};
+
+
 };
 
 export function mkClassMission(cls){

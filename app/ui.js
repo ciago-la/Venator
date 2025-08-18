@@ -1,5 +1,5 @@
-import {$,$$,el,fmt,TYPE,VER,xpNeedFor,cxpNeedFor,weekKey} from './utils.js';
-import {state,save,getProfiles,setProfiles,classObj} from './state.js';
+import {$,$$,el,fmt,TYPE,VER,xpNeedFor,cxpNeedFor,weekKey,BASE_CLASSES,EXTRA_CLASSES} from './utils.js';
+import {state,save,getProfiles,setProfiles,classObj, isClassUnlocked} from './state.js';
 import {showInfo,showWarn,showSuccess,showPunisher} from './notify.js';
 import {SHOP,buy,toggleEquip,icons} from './shop.js';
 
@@ -90,11 +90,30 @@ export function renderHeaderAndProfile(){
 
   const heroName=$('#heroName'), heroClass=$('#heroClass'), heroGoal=$('#heroGoal');
   if (heroName) heroName.value=state.hero.name||'';
-  if (heroClass && !heroClass.childElementCount){
-    ['Guerrero','Asesino','Mago','Arquero','Espía','Maratón','Amigo del dragón','Saltamontes']
-      .forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; heroClass.appendChild(o); });
-    heroClass.value=state.hero.cls||'Asesino';
-  }
+ if (heroClass && !heroClass.childElementCount){
+  // limpiamos
+  heroClass.innerHTML = '';
+
+  // 1) Clases base (siempre visibles)
+  BASE_CLASSES.forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c; o.textContent=c;
+    heroClass.appendChild(o);
+  });
+
+  // 2) Clases extra: solo si están desbloqueadas
+  EXTRA_CLASSES.forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c; o.textContent = isClassUnlocked(c) ? c : (c + ' (bloqueada)');
+    // si NO está desbloqueada, la dejamos deshabilitada
+    if (!isClassUnlocked(c)) o.disabled = true;
+    heroClass.appendChild(o);
+  });
+
+  // valor actual (si estaba en una bloqueada, volverá a una base)
+  heroClass.value = isClassUnlocked(state.hero.cls) ? state.hero.cls : 'Asesino';
+}
+
   if (heroGoal) heroGoal.value=state.hero.goal||'';
 
   if (heroName) heroName.onchange=()=>{ state.hero.name=heroName.value||'Amo'; save(); setHeader(); };

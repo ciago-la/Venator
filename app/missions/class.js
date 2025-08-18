@@ -1,3 +1,4 @@
+// app/missions/class.js · v15.2 — normaliza nombres y genera misiones de clase
 import {TYPE,uid,CLASSES,scaleTextForLevel,pickN} from '../utils.js';
 import {classObj} from '../state.js';
 
@@ -32,7 +33,7 @@ export function mkClassMission(cls){
   let pool=CLASS_POOL[clean]||[];
   if(pool.length<2) pool=pool.concat(['Técnica básica A','Técnica básica B','Técnica básica C']);
   const chosen = pickN(pool,2);
-  const cp=classObj();
+  const cp=classObj(); // ← nivel/XP de la CLASE ACTIVA (ya independiente)
   return {
     id:uid(),
     type:TYPE.CLASS,

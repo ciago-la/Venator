@@ -42,7 +42,7 @@ export function renderShop(){
   // inventario simple (solo ejemplo)
   Object.entries(state.inventory).forEach(([k,v])=>{
     if(!v) return;
-    const pretty = k==='time_potion'?'Poción de tiempo':k==='str_potion'?'Poción de fuerza':k==='ojodelvendabal'?'ojodelvendabal'k==='exp_potion'?'Poción de EXP':k==='cure'?'Curas':k;
+    const pretty = k==='time_potion'?'Poción de tiempo':k==='str_potion'?'Poción de fuerza':k==='ojodelvendabal'?'ojodelvendabal':k==='exp_potion'?'Poción de EXP':k==='cure'?'Curas':k;
     const li=el('li','card'), row=el('div','itemrow');
     row.appendChild(Object.assign(document.createElement('img'),{src: k==='time_potion'? icons.consum_time : k==='str_potion'?icons.consum_str : k==='exp_potion'?icons.consum_exp : icons.consum_cure, alt:'', className:'icon'}));
     row.appendChild(el('h4',null, pretty+' × '+v));
